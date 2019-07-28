@@ -97,16 +97,16 @@ std::vector<QString> DataStreamer::appendData(PlotDataMapRef &destination)
     std::vector<QString> added_curves;
     for (auto& it: _data_map.numeric)
     {
-        const std::string& name  = it.first;
+        const auto& name  = it.first;
         if( it.second.size()>0 && destination.numeric.count(name) == 0)
         {
-            added_curves.push_back( QString::fromStdString( name ) );
+            added_curves.push_back( QString::fromStdString( name.full() ) );
         }
     }
 
     for (auto& it: source.numeric)
     {
-        const std::string& name  = it.first;
+        const auto& name  = it.first;
         auto& source_plot  = it.second;
         auto plot_with_same_name = destination.numeric.find(name);
 
@@ -116,7 +116,7 @@ std::vector<QString> DataStreamer::appendData(PlotDataMapRef &destination)
             plot_with_same_name = destination.numeric.emplace(
                         std::piecewise_construct,
                         std::forward_as_tuple(name),
-                        std::forward_as_tuple(name)
+                        std::forward_as_tuple(name.full())
                         ).first;
         }
         auto& destination_plot = plot_with_same_name->second;
@@ -129,7 +129,7 @@ std::vector<QString> DataStreamer::appendData(PlotDataMapRef &destination)
 
     for (auto& it: source.user_defined)
     {
-        const std::string& name  = it.first;
+        const auto& name  = it.first;
         auto& source_plot  = it.second;
         auto plot_with_same_name = destination.user_defined.find(name);
 
@@ -139,7 +139,7 @@ std::vector<QString> DataStreamer::appendData(PlotDataMapRef &destination)
             plot_with_same_name = destination.user_defined.emplace(
                         std::piecewise_construct,
                         std::forward_as_tuple(name),
-                        std::forward_as_tuple(name)
+                        std::forward_as_tuple(name.full())
                         ).first;
         }
         auto& destination_plot = plot_with_same_name->second;

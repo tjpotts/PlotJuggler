@@ -39,7 +39,7 @@ AddCustomPlotDialog::AddCustomPlotDialog(PlotDataMapRef &plotMapData,
     QStringList numericPlotNames;
     for(const auto &p : _plot_map_data.numeric)
     {
-        QString name = QString::fromStdString(p.first);
+        QString name = QString::fromStdString(p.first.full());
         numericPlotNames.push_back(name);
     }
     numericPlotNames.sort(Qt::CaseInsensitive);

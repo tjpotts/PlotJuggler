@@ -587,11 +587,6 @@ void MainWindow::buildDummyData()
                << "fly/high/mai" << "fly/high/nessun" << "fly/low/ci" << "fly/low/dividera"
                << "data_1" << "data_2" << "data_3" << "data_10";
 
-    for( int i=0; i<10; i++)
-    {
-        words_list.append(QString("data_vect/%1").arg(count++));
-    }
-
     for( const QString& name: words_list)
     {
         double A =  6* ((double)qrand()/(double)RAND_MAX) - 3;
@@ -610,8 +605,27 @@ void MainWindow::buildDummyData()
         }
     }
 
-    PlotData& sin_plot =  datamap.addNumeric( "_sin" )->second;
-    PlotData& cos_plot =  datamap.addNumeric( "_cos" )->second;
+
+    for( int i=0; i<10; i++)
+    {
+        double A =  6* ((double)qrand()/(double)RAND_MAX) - 3;
+        double B =  3* ((double)qrand()/(double)RAND_MAX)  ;
+        double C =  3* ((double)qrand()/(double)RAND_MAX)  ;
+        double D =  20* ((double)qrand()/(double)RAND_MAX)  ;
+
+        auto it = datamap.addNumeric( {"/data/", std::to_string(i)} );
+        PlotData& plot = it->second;
+
+        double t = 0;
+        for (unsigned indx=0; indx<SIZE; indx++)
+        {
+            t += 0.01;
+            plot.pushBack( PlotData::Point( t,  A*sin(B*t + C) + D*t*0.02 ) ) ;
+        }
+    }
+
+    PlotData& sin_plot =  datamap.addNumeric( {"_sin"} )->second;
+    PlotData& cos_plot =  datamap.addNumeric( {"_cos"} )->second;
 
     double t = 0;
     for (unsigned indx=0; indx<SIZE; indx++)
@@ -988,13 +1002,13 @@ void MainWindow::deleteAllData()
 
 
 template <typename T>
-void importPlotDataMapHelper(std::unordered_map<std::string,T>& source,
-                             std::unordered_map<std::string,T>& destination,
+void importPlotDataMapHelper(std::unordered_map<PlotKey,T>& source,
+                             std::unordered_map<PlotKey,T>& destination,
                              bool delete_older)
 {
     for (auto& it: source)
     {
-        const std::string& name  = it.first;
+        const auto& name  = it.first;
         T& source_plot  = it.second;
         auto plot_with_same_name = destination.find(name);
 
@@ -1003,7 +1017,7 @@ void importPlotDataMapHelper(std::unordered_map<std::string,T>& source,
         {
             plot_with_same_name = destination.emplace( std::piecewise_construct,
                                                        std::forward_as_tuple(name),
-                                                       std::forward_as_tuple(name)
+                                                      std::forward_as_tuple(name.full())
                                                        ).first;
         }
         T& destination_plot = plot_with_same_name->second;
@@ -1041,7 +1055,7 @@ void MainWindow::importPlotDataMap(PlotDataMapRef& new_data, bool remove_old)
             // timeseries in old but not in new
             if( new_data.numeric.count( it.first ) == 0 )
             {
-                old_plots_to_delete.push_back( it.first );
+                old_plots_to_delete.push_back( it.first.full() );
             }
         }
 
@@ -1062,10 +1076,10 @@ void MainWindow::importPlotDataMap(PlotDataMapRef& new_data, bool remove_old)
     bool curvelist_modified = false;
     for (auto& it: new_data.numeric)
     {
-        const std::string& name  = it.first;
+        const auto& name  = it.first;
         if( it.second.size()>0 && _mapped_plot_data.numeric.count(name) == 0)
         {
-            _curvelist_widget->addItem( QString::fromStdString( name ) );
+            _curvelist_widget->addItem( QString::fromStdString( name.full() ) );
             curvelist_modified = true;
         }
     }

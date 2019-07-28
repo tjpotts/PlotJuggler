@@ -139,25 +139,70 @@ private:
 typedef PlotDataGeneric<double,double>  PlotData;
 typedef PlotDataGeneric<double, nonstd::any> PlotDataAny;
 
+class PlotKey
+{
+public:
+
+    PlotKey(const std::string& name): _name(name),_full(name)
+    {}
+
+    PlotKey(const std::string& prefix, const std::string& suffix)
+        :_name(prefix), _group(suffix),_full( prefix + suffix)
+    {}
+
+    const std::string& group() const { return _group; }
+    const std::string& name() const { return _name; }
+    const std::string& full() const { return _full; }
+
+    bool operator ==(const PlotKey& other) const {
+        return full() == other.full();
+    }
+    bool operator !=(const PlotKey& other) const {
+        return !(*this == other);
+    }
+
+    bool operator ==(const std::string& other) const {
+        return full() == other;
+    }
+    bool operator !=(const std::string& other) const {
+        return !(*this == other);
+    }
+
+private:
+    std::string _name;
+    std::string _group;
+    std::string _full;
+};
+
+namespace std {
+
+template <>
+struct hash<PlotKey>
+{
+    std::size_t operator()(const PlotKey& k) const{
+        return std::hash<string>()(k.full());
+    }
+};
+}
 
 typedef struct{
-  std::unordered_map<std::string, PlotData>     numeric;
-  std::unordered_map<std::string, PlotDataAny>  user_defined;
+  std::unordered_map<PlotKey, PlotData>     numeric;
+  std::unordered_map<PlotKey, PlotDataAny>  user_defined;
 
-  std::unordered_map<std::string, PlotData>::iterator addNumeric(const std::string& name)
+  std::unordered_map<PlotKey, PlotData>::iterator addNumeric(const PlotKey& name)
   {
       return numeric.emplace( std::piecewise_construct,
                        std::forward_as_tuple(name),
-                       std::forward_as_tuple(name)
+                       std::forward_as_tuple(name.full())
                        ).first;
   }
 
 
-  std::unordered_map<std::string, PlotDataAny>::iterator addUserDefined(const std::string& name)
+  std::unordered_map<PlotKey, PlotDataAny>::iterator addUserDefined(const PlotKey& name)
   {
       return user_defined.emplace( std::piecewise_construct,
                                    std::forward_as_tuple(name),
-                                   std::forward_as_tuple(name)
+                                   std::forward_as_tuple(name.full())
                                    ).first;
   }
 
@@ -166,27 +211,27 @@ typedef struct{
 
 //-----------------------------------
 template<typename Value>
-inline void AddPrefixToPlotData(const std::string &prefix, std::unordered_map<std::string, Value>& data)
+inline void AddPrefixToPlotData(const std::string &prefix, std::unordered_map<PlotKey, Value>& data)
 {
     if( prefix.empty() ) return;
 
-    std::unordered_map<std::string, Value> temp;
+    std::unordered_map<PlotKey, Value> temp;
 
     for(auto& it: data)
     {
-        std::string key;
-        key.reserve( prefix.size() + 2 + it.first.size() );
-        if( it.first.front() == '/' )
+        const PlotKey& prev_key = it.first;
+        PlotKey key= {"", ""};
+        if( prev_key.full().front() == '/' )
         {
-            key = prefix + it.first;
+            key = PlotKey(prefix + prev_key.group(), prev_key.name() );
         }
         else{
-            key = prefix + "/" + it.first;
+            key = PlotKey(prefix + "/" +  prev_key.group(), prev_key.name() );
         }
 
         auto new_plot = temp.emplace( std::piecewise_construct,
                                       std::forward_as_tuple(key),
-                                      std::forward_as_tuple(key) ).first;
+                                      std::forward_as_tuple(key.full()) ).first;
 
         new_plot->second.swapData( it.second );
     }
