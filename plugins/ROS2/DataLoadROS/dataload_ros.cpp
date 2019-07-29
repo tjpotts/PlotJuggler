@@ -189,7 +189,7 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
         const rosidl_message_type_support_t * typesupport = rosbag2::get_typesupport(topicType, rosidl_typesupport_introspection_cpp::typesupport_identifier);
 
         std::vector<TopicMemberInfo> v;
-        generateMessageTypesVec(v, topic, typesupport, 0);
+        generateMessageTypesVec(v, topic, typesupport, 4);
         topicsMembersData.emplace(topicStd, v);
     }
 
@@ -434,13 +434,14 @@ void DataLoadROS::generateMessageTypesVec(std::vector<TopicMemberInfo> &membersV
             topicMemberInfo.ros_type = member.type_id_;
 
             membersVec.push_back(topicMemberInfo);
+            qDebug() << "adding member : " << topicMemberInfo.path << " with offset : " << topicMemberInfo.offset;
         }
         else if(member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE)
         {
             generateMessageTypesVec(membersVec,
                                path + "/" + QString::fromUtf8(member.name_),
                                member.members_,
-                               offset+member.offset_
+                               offset + member.offset_
                                );
         }
     }
