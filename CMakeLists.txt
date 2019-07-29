@@ -1,10 +1,12 @@
 project(plotjuggler)
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 # http://answers.ros.org/question/230877/optionally-build-a-package-with-catkin/
-if( CATKIN_DEVEL_PREFIX OR catkin_FOUND OR CATKIN_BUILD_BINARY_PACKAGE)
-    set(COMPILING_WITH_CATKIN 1)
-endif()
+#if( CATKIN_DEVEL_PREFIX OR catkin_FOUND OR CATKIN_BUILD_BINARY_PACKAGE)
+#    set(COMPILING_WITH_CATKIN 1)
+#endif()
+
+set(COMPILING_WITH_AMENT 1)
 
 cmake_policy (SET CMP0020 NEW)
 
@@ -17,12 +19,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 SET(CMAKE_AUTOUIC ON)
 
-if(NOT CMAKE_VERSION VERSION_LESS 3.1)
-    set(CMAKE_CXX_STANDARD 11)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-endif()
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer")
@@ -95,6 +93,12 @@ if(COMPILING_WITH_CATKIN)
 
     INCLUDE_DIRECTORIES( ${catkin_INCLUDE_DIRS} )
 
+elseif(COMPILING_WITH_AMENT)
+    find_package(ament_cmake REQUIRED)
+    find_package(rclcpp REQUIRED)
+    find_package(rosbag2 REQUIRED)
+    find_package(rosidl_typesupport_cpp REQUIRED)
+    find_package(rosidl_typesupport_introspection_cpp REQUIRED)
 endif()
 
 
@@ -135,7 +139,11 @@ if(COMPILING_WITH_CATKIN)
         DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
     INSTALL( FILES ${CMAKE_CURRENT_SOURCE_DIR}/PlotJuggler.desktop
         DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
-
+elseif(COMPILING_WITH_AMENT)
+    INSTALL( FILES ${CMAKE_CURRENT_SOURCE_DIR}/plotjuggler-icon.png
+        DESTINATION lib)
+    INSTALL( FILES ${CMAKE_CURRENT_SOURCE_DIR}/PlotJuggler.desktop
+        DESTINATION lib)
 else()
     set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -174,6 +182,11 @@ if(COMPILING_WITH_CATKIN)
     add_subdirectory( plugins/ROS )
 endif()
 
+if(COMPILING_WITH_AMENT)
+    add_subdirectory( plugins/ROS2 )
+    
+    ament_package()
+endif()
 
 
 

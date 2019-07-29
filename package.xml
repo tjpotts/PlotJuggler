@@ -1,51 +1,24 @@
 <?xml version="1.0"?>
-<package>
-<name>plotjuggler</name>
-<version>2.3.0</version>
-<description>PlotJuggler: juggle with data</description>
+<package format="2">
+    <name>plotjuggler</name>
+    <version>2.3.0</version>
+    <description>PlotJuggler: juggle with data</description>
 
-<maintainer email="davide.faconti@gmail.com">Davide Faconti</maintainer>
-<license>LGPLv3</license>
+    <maintainer email="davide.faconti@gmail.com">Davide Faconti</maintainer>
+    <license>LGPLv3</license>
 
-<url type="website">https://github.com/facontidavide/PlotJuggler</url>
+    <url type="website">https://github.com/facontidavide/PlotJuggler</url>
 
-<author email="davide.faconti@gmail.com">Davide Faconti</author>
+    <author email="davide.faconti@gmail.com">Davide Faconti</author>
 
-<buildtool_depend>catkin</buildtool_depend>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <depend>rclcpp</depend>
+    <depend>rosbag2</depend>
+    <depend>rosidl_typesupport_cpp</depend>
+    <depend>rosidl_typesupport_introspection_cpp</depend>
+    
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
 
-<build_depend>rosbag</build_depend>
-<build_depend>rosbag_storage</build_depend>
-<build_depend>roscpp</build_depend>
-<build_depend>roscpp_serialization</build_depend>
-<build_depend>rostime</build_depend>
-<build_depend>topic_tools</build_depend>
-<build_depend>tf</build_depend>
-<build_depend>ros_type_introspection</build_depend>
-<build_depend>qtbase5-dev</build_depend>
-<build_depend>qtdeclarative5-dev</build_depend>
-<build_depend>qtmultimedia5-dev</build_depend>
-<build_depend>binutils</build_depend>
-<build_depend>diagnostic_msgs</build_depend>
-<build_depend>nav_msgs</build_depend>
-
-<run_depend>rosbag</run_depend>
-<run_depend>rosbag_storage</run_depend>
-<run_depend>roscpp</run_depend>
-<run_depend>roscpp_serialization</run_depend>
-<run_depend>rostime</run_depend>
-<run_depend>topic_tools</run_depend>
-<run_depend>ros_type_introspection</run_depend>
-<run_depend>qtbase5-dev</run_depend>
-<run_depend>qtdeclarative5-dev</run_depend>
-<run_depend>qtmultimedia5-dev</run_depend>
-<run_depend>binutils</run_depend>
-<run_depend>tf</run_depend>
-<run_depend>diagnostic_msgs</run_depend>
-<run_depend>nav_msgs</run_depend>
-
-<!-- The export tag contains other, unspecified, tags -->
-<export>
-<!-- Other tools can request additional information be placed here -->
-
-</export>
 </package>

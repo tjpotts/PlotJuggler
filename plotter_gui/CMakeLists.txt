@@ -76,6 +76,10 @@ if(COMPILING_WITH_CATKIN)
        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
      )
+elseif(COMPILING_WITH_AMENT)
+    ament_target_dependencies(PlotJuggler)
+    install(TARGETS PlotJuggler
+        DESTINATION lib/plotjuggler)
 else()
     install(TARGETS PlotJuggler DESTINATION bin  )
 endif()

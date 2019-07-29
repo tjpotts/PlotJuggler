@@ -136,6 +136,7 @@ MainWindow::MainWindow(const QCommandLineParser &commandline_parser, QWidget *pa
 
     initializeActions();
     initializePlugins( QCoreApplication::applicationDirPath() );
+    initializePlugins( QDir::currentPath() );
     initializePlugins("/usr/local/PlotJuggler/plugins");
 
     _undo_timer.start();
