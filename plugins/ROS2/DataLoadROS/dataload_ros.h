@@ -5,6 +5,7 @@
 #include <QtPlugin>
 #include <QSettings>
 
+#include "PlotJuggler/optional.hpp"
 #include <rosbag2/sequential_reader.hpp>
 
 #include "PlotJuggler/dataloader_base.h"
@@ -21,6 +22,7 @@ class  DataLoadROS: public DataLoader
     struct TopicMemberInfo
     {
         QString path;
+        std::string name;
         uint32_t offset;
         uint8_t ros_type;
         std::unordered_map<std::string, PlotData>::iterator plot_map_iterator;
@@ -33,6 +35,9 @@ class  DataLoadROS: public DataLoader
         std::shared_ptr<rosbag2_introspection_message_t> msg_buffer;
         const rosidl_message_type_support_t* typesupport;
         const rosidl_message_type_support_t* introspection_typesupport;
+
+        nonstd::optional<uint32_t> stampSecOffset;
+        nonstd::optional<uint32_t> stampNanosecOffset;
     };
 
 public:
