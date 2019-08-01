@@ -16,7 +16,9 @@
 #include <rosidl_typesupport_introspection_cpp/identifier.hpp>
 #include <rosidl_typesupport_introspection_cpp/message_introspection.hpp>
 #include <rosidl_typesupport_introspection_cpp/field_types.hpp>
+#include <rosidl_typesupport_cpp/identifier.hpp>
 #include <rosbag2/typesupport_helpers.hpp>
+#include <rosbag2/types/introspection_message.hpp>
 #include <unordered_map>
 #include <rmw/rmw.h>
 
@@ -42,75 +44,12 @@ const std::vector<const char*> &DataLoadROS::compatibleFileExtensions() const
     return _extensions;
 }
 
-std::vector<std::pair<QString,QString>> DataLoadROS::getAndRegisterAllTopics()
-{
-    /*
-    std::vector<std::pair<QString,QString>> all_topics;
-    rosbag::View bag_view ( *_bag, ros::TIME_MIN, ros::TIME_MAX, true );
-
-    RosIntrospectionFactory::reset();
-
-    bool ignoreAll = false;
-
-    for(auto& conn: bag_view.getConnections() )
-    {
-        const auto&  topic      =  conn->topic;
-        const auto&  md5sum     =  conn->md5sum;
-        const auto&  datatype   =  conn->datatype;
-        const auto&  definition =  conn->msg_def;
-
-        all_topics.push_back( std::make_pair(QString( topic.c_str()), QString( datatype.c_str()) ) );
-        try {
-            _ros_parser.registerSchema(
-                    topic, md5sum, RosIntrospection::ROSType(datatype), definition);
-            RosIntrospectionFactory::registerMessage(topic, md5sum, datatype, definition);
-        }
-        catch(std::exception &ex)
-        {
-            // there was a problem with this topic
-            // a real life problem example can be found here:
-            // https://github.com/rosjava/rosjava_bootstrap/issues/16
-            all_topics.pop_back();
-
-            if (ignoreAll) {
-                // this is not the first error with this load and the
-                // user has accepted to ignore all errors
-                continue;
-            }
-
-            // prompt user to abort or continue
-            QMessageBox msgBox(nullptr);
-            msgBox.setWindowTitle("ROS bag error");
-            msgBox.setText(QString("Topic ") +
-                           QString(topic.c_str()) +
-                           QString(": ") +
-                           QString(ex.what()));
-
-            QPushButton* buttonCancel = msgBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
-            QPushButton* buttonIgnore = msgBox.addButton(tr("Ignore"), QMessageBox::YesRole);
-            QPushButton* buttonIgnoreAll = msgBox.addButton(tr("Ignore all"), QMessageBox::AcceptRole);
-            msgBox.setDefaultButton(buttonIgnoreAll);
-            msgBox.exec();
-            if( msgBox.clickedButton() == buttonCancel)
-            {
-                // abort the file loading
-                throw;
-            }
-            if( msgBox.clickedButton() == buttonIgnoreAll)
-            {
-                // accept this and all future errors for this load
-                ignoreAll = true;
-            }
-        }
-    }
-    return all_topics;
-    */
-}
-
-
 bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
 {
-    _bagReader = std::make_shared<rosbag2::SequentialReader>();
+    auto allocator = rcutils_get_default_allocator();
+
+    if(!_bagReader)
+        _bagReader = std::make_shared<rosbag2::SequentialReader>();
 
     QString bagDir;
     {
@@ -135,20 +74,7 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
     {
         all_topics.push_back(std::make_pair(QString::fromStdString(topic.name), QString::fromStdString(topic.type)));
         topicTypesByName.emplace(topic.name, topic.type);
-        qDebug() << QString::fromStdString(topic.name) << " : " << QString::fromStdString(topic.type);
-
-        /*
-        const rosidl_message_type_support_t * typesupport = rosbag2::get_typesupport(topic.type, rosidl_typesupport_introspection_cpp::typesupport_identifier);
-        auto members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(typesupport->data);
-
-        for(size_t i = 0; i < members->member_count_; i++)
-        {
-            auto member = members->members_[i];
-            qDebug() << "Member name : " << member.name_;
-
-            //rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING;
-        }
-        */
+        //qDebug() << QString::fromStdString(topic.name) << " : " << QString::fromStdString(topic.type);
     }
 
     if( info->plugin_config.hasChildNodes() )
@@ -176,7 +102,7 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
     saveDefaultSettings();
 
     //std::unordered_map<std::string, const rosidl_message_type_support_t*> topicsIntrospectionData; // topic and type
-    std::unordered_map<std::string, std::vector<TopicMemberInfo>> topicsMembersData;
+    std::unordered_map<std::string, TopicData> topicsMembersData;
 
     std::set<std::string> topic_selected;
     for(const auto& topic: _config.selected_topics)
@@ -186,25 +112,29 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
         topic_selected.insert( topic.toStdString() );
 
         // load type introspection
-        const rosidl_message_type_support_t * typesupport = rosbag2::get_typesupport(topicType, rosidl_typesupport_introspection_cpp::typesupport_identifier);
+        const rosidl_message_type_support_t * introspection_typesupport = rosbag2::get_typesupport(topicType, rosidl_typesupport_introspection_cpp::typesupport_identifier);
+        const rosidl_message_type_support_t * typesupport = rosbag2::get_typesupport(topicType, rosidl_typesupport_cpp::typesupport_identifier);
 
-        std::vector<TopicMemberInfo> v;
-        generateMessageTypesVec(v, topic, typesupport, 4);
-        topicsMembersData.emplace(topicStd, v);
+
+        TopicData td;
+        td.msg_buffer = rosbag2::allocate_introspection_message(introspection_typesupport, &allocator);
+        td.introspection_typesupport = introspection_typesupport;
+        td.typesupport = typesupport;
+        td.type = topicType;
+        generateMessageTypesVec(td.members, topic, introspection_typesupport, 0);
+        topicsMembersData.emplace(topicStd, td);
     }
 
     // add topics in plot_ref
     for(auto &p : topicsMembersData)
     {
         //const std::string &topic = p.first;
-        for(TopicMemberInfo &memberInfo : p.second)
+        for(TopicMemberInfo &memberInfo : p.second.members)
         {
             // addNumeric may invalidate the iterator, but the reference to its data will still be valid
             memberInfo.plot_map_iterator = plot_map.addNumeric(memberInfo.path.toStdString());
         }
     }
-
-    //PlotDataAny& plot_consecutive = plot_map.addUserDefined( "__consecutive_message_instances__" )->second;
 
     while(_bagReader->has_next())
     {
@@ -216,25 +146,25 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
         auto itToTopicMembersData = topicsMembersData.find(msg->topic_name);
         if(itToTopicMembersData != topicsMembersData.end())
         {
-            for(const TopicMemberInfo& member : itToTopicMembersData->second)
+            TopicData &td = itToTopicMembersData->second;
+            auto deserializedMsgData = td.msg_buffer->message;
+            auto deserialize_ret = rmw_deserialize(msg->serialized_data.get(), td.typesupport, deserializedMsgData);
+            if(deserialize_ret != RMW_RET_OK)
+            {
+                throw std::runtime_error("Failed to deserialize topic " + itToTopicMembersData->first + " error : " + std::to_string(deserialize_ret));
+            }
+
+            for(const TopicMemberInfo& member : itToTopicMembersData->second.members)
             {
                 double numericData = 0.;
 
                 if(member.ros_type == rosidl_typesupport_introspection_cpp::ROS_TYPE_FLOAT)
                 {
-                    if(msg->serialized_data->buffer_length < (member.offset + sizeof(float)))
-                    {
-                        throw std::runtime_error("rosbag message size mismatch");
-                    }
-                    numericData = static_cast<double>(*reinterpret_cast<float*>(msg->serialized_data->buffer + member.offset));
+                    numericData = static_cast<double>(*reinterpret_cast<float*>(static_cast<uint8_t*>(deserializedMsgData) + member.offset));
                 }
                 else if(member.ros_type == rosidl_typesupport_introspection_cpp::ROS_TYPE_DOUBLE)
                 {
-                    if(msg->serialized_data->buffer_length < (member.offset + sizeof(double)))
-                    {
-                        throw std::runtime_error("rosbag message size mismatch");
-                    }
-                    numericData = *reinterpret_cast<double*>(msg->serialized_data->buffer + member.offset);
+                    numericData = *reinterpret_cast<double*>(static_cast<uint8_t*>(deserializedMsgData) + member.offset);
                 }
 
                 member.plot_map_iterator->second.pushBack(PlotData::Point(stamp, numericData));
@@ -244,132 +174,6 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
 
     info->selected_datasources = _config.selected_topics;
     return true;
-
-    /*
-    if( _bag ) _bag->close();
-
-    _bag = std::make_shared<rosbag::Bag>();
-    _ros_parser.clear();
-
-    try{
-        _bag->open( info->filename.toStdString(), rosbag::bagmode::Read );
-    }
-    catch( rosbag::BagException&  ex)
-    {
-        QMessageBox::warning(nullptr, tr("Error"),
-                             QString("rosbag::open thrown an exception:\n")+
-                             QString(ex.what()) );
-        return false;
-    }
-
-    auto all_topics = getAndRegisterAllTopics();
-
-    //----------------------------------
-
-    if( info->plugin_config.hasChildNodes() )
-    {
-        xmlLoadState( info->plugin_config.firstChildElement() );
-    }
-
-    if( ! info->selected_datasources.empty() )
-    {
-            _config.selected_topics =   info->selected_datasources;
-    }
-    else{
-        DialogSelectRosTopics* dialog = new DialogSelectRosTopics( all_topics, _config );
-
-        if( dialog->exec() != static_cast<int>(QDialog::Accepted) )
-        {
-            return false;
-        }
-        _config = dialog->getResult();
-    }
-
-    saveDefaultSettings();
-
-    _ros_parser.setUseHeaderStamp( _config.use_header_stamp );
-    _ros_parser.setMaxArrayPolicy( _config.max_array_size, _config.discard_large_arrays );
-
-    if( _config.use_renaming_rules )
-    {
-        _ros_parser.addRules( RuleEditing::getRenamingRules() );
-    }
-
-    //-----------------------------------
-    std::set<std::string> topic_selected;
-    for(const auto& topic: _config.selected_topics)
-    {
-        topic_selected.insert( topic.toStdString() );
-    }
-
-    QProgressDialog progress_dialog;
-    progress_dialog.setLabelText("Loading... please wait");
-    progress_dialog.setWindowModality( Qt::ApplicationModal );
-
-    rosbag::View bag_view ( *_bag );
-
-    progress_dialog.setRange(0, bag_view.size()-1);
-    progress_dialog.show();
-
-    std::vector<uint8_t> buffer;
-
-    int msg_count = 0;
-
-    QElapsedTimer timer;
-    timer.start();
-
-
-    PlotDataAny& plot_consecutive = plot_map.addUserDefined( "__consecutive_message_instances__" )->second;
-
-    for(const rosbag::MessageInstance& msg_instance: bag_view)
-    {
-
-        const std::string& topic_name  = msg_instance.getTopic();
-        double msg_time = msg_instance.getTime().toSec();
-        auto data_point = PlotDataAny::Point(msg_time, nonstd::any(msg_instance) );
-        plot_consecutive.pushBack( data_point );
-
-        const std::string* key_ptr = &topic_name ;
-
-        auto plot_pair = plot_map.user_defined.find( *key_ptr );
-        if( plot_pair == plot_map.user_defined.end() )
-        {
-            plot_pair = plot_map.addUserDefined( *key_ptr );
-        }
-        PlotDataAny& plot_raw = plot_pair->second;
-        plot_raw.pushBack( data_point );
-        //------------------------------------------
-        if( msg_count++ %100 == 0)
-        {
-            progress_dialog.setValue( msg_count );
-            QApplication::processEvents();
-
-            if( progress_dialog.wasCanceled() ) {
-                return false;
-            }
-        }
-        //------------------------------------------
-        if( topic_selected.find( topic_name ) == topic_selected.end() )
-        {
-            continue;
-        }
-
-        const size_t msg_size  = msg_instance.size();
-        buffer.resize(msg_size);
-
-        ros::serialization::OStream stream(buffer.data(), buffer.size());
-        msg_instance.write(stream);
-        MessageRef buffer_view( buffer );
-        _ros_parser.pushMessageRef( topic_name, buffer_view, msg_time );
-    }
-
-    _ros_parser.extractData(plot_map, "");
-
-    qDebug() << "The loading operation took" << timer.elapsed() << "milliseconds";
-
-    info->selected_datasources = _config.selected_topics;
-    return true;
-    */
 }
 
 DataLoadROS::~DataLoadROS()
@@ -444,71 +248,14 @@ void DataLoadROS::generateMessageTypesVec(std::vector<TopicMemberInfo> &membersV
                                offset + member.offset_
                                );
         }
-    }
-}
-
-void DataLoadROS::loadTopicToPlotMap(PlotDataMapRef &plot_map,
-                                     const QString &path,
-                                     const rosidl_message_type_support_t *typeData,
-                                     uint32_t messageOffset,
-                                     const rcutils_uint8_array_t& messageData)
-{
-    const auto* members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(typeData->data);
-
-    for(size_t i = 0; i < members->member_count_; i++)
-    {
-        auto member = members->members_[i];
-        double numericData = 0.;
-        bool dataIsNumeric = false;
-        if(member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_FLOAT)
+        else if(member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING)
         {
-            dataIsNumeric = true;
-            uint32_t memberOffset = messageOffset + member.offset_;
-            if(messageData.buffer_length < memberOffset + sizeof(float))
-            {
-                throw std::runtime_error("rosbag message size mismatch");
-            }
-            numericData = static_cast<double>(*reinterpret_cast<float*>(messageData.buffer + memberOffset));
+            TopicMemberInfo topicMemberInfo;
+            topicMemberInfo.path = path + "/" + QString::fromUtf8(member.name_);
+            topicMemberInfo.offset = offset + member.offset_;
+            topicMemberInfo.ros_type = member.type_id_;
+            qDebug() << "unused string member : " << topicMemberInfo.path << " with offset : " << topicMemberInfo.offset;
         }
-        else if(member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_DOUBLE)
-        {
-            dataIsNumeric = true;
-            uint32_t memberOffset = messageOffset + member.offset_;
-            if(messageData.buffer_length < memberOffset + sizeof(double))
-            {
-                throw std::runtime_error("rosbag message size mismatch");
-            }
-            numericData = *reinterpret_cast<double*>(messageData.buffer + memberOffset);
-        }
-        else if(member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_BOOLEAN)
-        {
-            dataIsNumeric = true;
-            uint32_t memberOffset = messageOffset + member.offset_;
-            if(messageData.buffer_length < memberOffset + sizeof(float))
-            {
-                throw std::runtime_error("rosbag message size mismatch");
-            }
-            bool b = *reinterpret_cast<bool*>(messageData.buffer + memberOffset);
-            numericData = b ? 1. : 0.;
-        }
-        // TODO : add integer types
-        else if(member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE)
-        {
-            loadTopicToPlotMap(plot_map,
-                               path + "/" + QString::fromUtf8(member.name_),
-                               member.members_,
-                               messageOffset+member.offset_,
-                               messageData);
-        }
-
-        if(dataIsNumeric)
-        {
-            QString numericPath = path + "/" + QString::fromUtf8(member.name_);
-        }
-
-        //qDebug() << "Member name : " << member.name_;
-
-        //rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING;
     }
 }
 

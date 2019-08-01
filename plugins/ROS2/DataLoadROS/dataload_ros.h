@@ -26,6 +26,15 @@ class  DataLoadROS: public DataLoader
         std::unordered_map<std::string, PlotData>::iterator plot_map_iterator;
     };
 
+    struct TopicData
+    {
+        std::vector<TopicMemberInfo> members;
+        std::string type;
+        std::shared_ptr<rosbag2_introspection_message_t> msg_buffer;
+        const rosidl_message_type_support_t* typesupport;
+        const rosidl_message_type_support_t* introspection_typesupport;
+    };
+
 public:
     DataLoadROS();
 
@@ -50,13 +59,6 @@ private:
                              const QString& path,
                              const rosidl_message_type_support_t* typeData,
                              uint32_t offset);
-
-
-    void loadTopicToPlotMap(PlotDataMapRef& plot_map,
-                            const QString& path,
-                            const rosidl_message_type_support_t* typeData,
-                            uint32_t offset,
-                            const rcutils_uint8_array_t& messageData);
 
     std::vector<const char*> _extensions;
 
