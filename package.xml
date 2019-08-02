@@ -38,7 +38,8 @@
     <depend>binutils</depend>
     
     <export>
-        <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+        <!-- the "condition" attribute on "<build_type>" doesn't work yet -->
+        <!-- <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type> -->
     </export>
 
 </package>
