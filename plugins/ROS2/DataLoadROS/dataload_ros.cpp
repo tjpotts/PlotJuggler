@@ -290,6 +290,9 @@ void DataLoadROS::generateMessageTypesVec(std::vector<TopicMemberInfo> &membersV
     for(size_t i = 0; i < members->member_count_; i++)
     {
         const rosidl_typesupport_introspection_cpp::MessageMember& member = members->members_[i];
+        if(member.is_array_)
+            continue; // unsupported
+
         if(     member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_FLOAT ||
                 member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_DOUBLE ||
                 member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_BOOLEAN ||

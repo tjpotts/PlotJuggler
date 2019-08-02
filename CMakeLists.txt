@@ -94,6 +94,10 @@ if(COMPILING_WITH_CATKIN)
     INCLUDE_DIRECTORIES( ${catkin_INCLUDE_DIRS} )
 
 elseif(COMPILING_WITH_AMENT)
+    message(STATUS "---------------------------------------------------------------------")
+    message(STATUS "PlotJuggler is being built using AMENT. ROS2 plugins will be compiled")
+    message(STATUS "---------------------------------------------------------------------")
+
     find_package(ament_cmake REQUIRED)
     find_package(rclcpp REQUIRED)
     find_package(rosbag2 REQUIRED)

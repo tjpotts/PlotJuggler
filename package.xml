@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
     <name>plotjuggler</name>
     <version>2.3.0</version>
     <description>PlotJuggler: juggle with data</description>
@@ -11,14 +11,34 @@
 
     <author email="davide.faconti@gmail.com">Davide Faconti</author>
 
-    <buildtool_depend>ament_cmake</buildtool_depend>
-    <depend>rclcpp</depend>
-    <depend>rosbag2</depend>
-    <depend>rosidl_typesupport_cpp</depend>
-    <depend>rosidl_typesupport_introspection_cpp</depend>
+    <!-- ROS1 dependencies -->
+    <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+    <depend condition="$ROS_VERSION == 1">rosbag</depend>
+    <depend condition="$ROS_VERSION == 1">rosbag_storage</depend>
+    <depend condition="$ROS_VERSION == 1">roscpp</depend>
+    <depend condition="$ROS_VERSION == 1">roscpp_serialization</depend>
+    <depend condition="$ROS_VERSION == 1">rostime</depend>
+    <depend condition="$ROS_VERSION == 1">topic_tools</depend>
+    <depend condition="$ROS_VERSION == 1">tf</depend>
+    <depend condition="$ROS_VERSION == 1">ros_type_introspection</depend>
+    <depend condition="$ROS_VERSION == 1">diagnostic_msgs</depend>
+    <depend condition="$ROS_VERSION == 1">nav_msgs</depend>
+
+    <!-- ROS2 dependencies -->
+    <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
+    <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+    <depend condition="$ROS_VERSION == 2">rosbag2</depend>
+    <depend condition="$ROS_VERSION == 2">rosidl_typesupport_cpp</depend>
+    <depend condition="$ROS_VERSION == 2">rosidl_typesupport_introspection_cpp</depend>
+
+    <!-- common dependancies -->
+    <depend>qtbase5-dev</depend>
+    <depend>qtdeclarative5-dev</depend>
+    <depend>qtmultimedia5-dev</depend>
+    <depend>binutils</depend>
     
     <export>
-        <build_type>ament_cmake</build_type>
+        <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
     </export>
 
 </package>
