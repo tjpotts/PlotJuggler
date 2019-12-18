@@ -3,7 +3,9 @@
 #include <QColorDialog>
 
 
-CurveColorPick::CurveColorPick(const std::map<std::string, QColor> &mapped_colors, QWidget *parent) :
+CurveColorPick::CurveColorPick(const std::map<std::string, QColor> &mapped_colors,
+                               const QVector<QColor>& palette,
+                               QWidget *parent) :
     QDialog(parent),
     ui(new Ui::CurveColorPick),
     _any_modified(false),
@@ -27,6 +29,11 @@ CurveColorPick::CurveColorPick(const std::map<std::string, QColor> &mapped_color
     ui->verticalLayoutRight->insertWidget(1, _color_preview );
     _color_preview->setMinimumWidth(150);
     _color_preview->setMinimumHeight(100);
+
+    _color_palette = new  color_widgets::Swatch(this);
+    ui->verticalLayoutRight->insertWidget(2, _color_palette );
+    _color_palette->setMinimumWidth(150);
+
 
     connect(_color_wheel,   &color_widgets::ColorWheel::colorChanged,
             _color_preview, &color_widgets::ColorPreview::setColor );
