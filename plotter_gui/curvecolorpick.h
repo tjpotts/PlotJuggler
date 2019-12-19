@@ -19,7 +19,6 @@ class CurveColorPick : public QDialog
 
 public:
     explicit CurveColorPick(const std::map<std::string, QColor>& mapped_colors,
-                         const QVector<QColor>& palette,
                          QWidget *parent = 0);
     ~CurveColorPick();
 

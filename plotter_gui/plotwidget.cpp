@@ -1384,7 +1384,7 @@ void PlotWidget::on_changeColorsDialog_triggered()
         color_by_name.insert(std::make_pair( curve_name, curve->pen().color() ));
     }
 
-    CurveColorPick* dialog = new CurveColorPick(color_by_name, {}, this);
+    CurveColorPick* dialog = new CurveColorPick(color_by_name, this);
 
     connect( dialog, &CurveColorPick::changeColor, this, &PlotWidget::on_changeColor,
              Qt::DirectConnection);

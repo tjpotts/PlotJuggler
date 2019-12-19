@@ -276,11 +276,6 @@ void CurveListPanel::on_radioRegExp_toggled(bool checked)
     }
 }
 
-void CurveListPanel::on_checkBoxCaseSensitive_toggled(bool )
-{
-    updateFilter();
-}
-
 void CurveListPanel::on_lineEdit_textChanged(const QString &search_string)
 {
     bool updated = false;
