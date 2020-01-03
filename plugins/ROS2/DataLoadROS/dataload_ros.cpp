@@ -49,7 +49,7 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
     auto allocator = rcutils_get_default_allocator();
 
     if(!_bagReader)
-        _bagReader = std::make_shared<rosbag2::SequentialReader>();
+        _bagReader = std::make_shared<rosbag2::readers::SequentialReader>();
 
     QString bagDir;
     {

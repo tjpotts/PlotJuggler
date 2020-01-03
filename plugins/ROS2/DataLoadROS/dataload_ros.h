@@ -6,7 +6,7 @@
 #include <QSettings>
 
 #include "PlotJuggler/optional.hpp"
-#include <rosbag2/sequential_reader.hpp>
+#include <rosbag2/readers/sequential_reader.hpp>
 
 #include "PlotJuggler/dataloader_base.h"
 #include "../dialog_select_ros_topics.h"
@@ -57,7 +57,7 @@ public:
 
 protected:
     //std::shared_ptr<rosbag::Bag> _bag;
-    std::shared_ptr<rosbag2::SequentialReader> _bagReader;
+    std::shared_ptr<rosbag2::readers::SequentialReader> _bagReader;
 
 private:
     void generateMessageTypesVec(std::vector<TopicMemberInfo> &membersVec,
