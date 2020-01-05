@@ -64,7 +64,11 @@ bool DataLoadROS::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_map)
     converterOptions.input_serialization_format = "cdr";
     converterOptions.output_serialization_format = rmw_get_serialization_format();
 
+    // Temporarily change the current directory as a workaround for rosbag2 relative directories not working properly
+    QString oldPath = QDir::currentPath();
+    QDir::setCurrent(QDir::cleanPath(bagDir + QDir::separator() + ".."));
     _bagReader->open(storageOptions, converterOptions);
+    QDir::setCurrent(oldPath);
 
     std::vector<rosbag2::TopicMetadata> metadata = _bagReader->get_all_topics_and_types();
     std::unordered_map<std::string, std::string> topicTypesByName;
