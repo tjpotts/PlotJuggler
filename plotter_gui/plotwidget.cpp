@@ -648,11 +648,11 @@ void PlotWidget::dropEvent(QDropEvent *)
     {
         if( _xy_mode && !_curve_list.empty() )
         {
+            _dragging.mode = DragInfo::NONE;
+            _dragging.curves.clear();
             QMessageBox::warning(this, "Warning",
                                  tr("This is a XY plot, you can not drop normal time series here.\n"
                                     "Clear all curves to reset it to normal mode.") );
-            _dragging.mode = DragInfo::NONE;
-            _dragging.curves.clear();
             return;
         }
         else if( _xy_mode && _curve_list.empty() )
@@ -669,12 +669,12 @@ void PlotWidget::dropEvent(QDropEvent *)
     }
     else if( _dragging.mode == DragInfo::NEW_XY && _dragging.curves.size() == 2)
     {
+        _dragging.mode = DragInfo::NONE;
         if( !_curve_list.empty() && !_xy_mode )
         {
             QMessageBox::warning(this, "Warning",
                                  tr("To convert this widget into a XY plot, "
                                     "you must first remove all the time series.") );
-            _dragging.mode = DragInfo::NONE;
             _dragging.curves.clear();
             return;
         }
