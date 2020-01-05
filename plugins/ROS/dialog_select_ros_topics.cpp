@@ -62,7 +62,17 @@ DialogSelectRosTopics::DialogSelectRosTopics(const std::vector<std::pair<QString
     _deselect_all.setContext(Qt::WindowShortcut);
 
     connect( &_select_all, &QShortcut::activated,
-             ui->listRosTopics, &QAbstractItemView::selectAll );
+            ui->listRosTopics, [this]()
+            {
+              for (int row=0; row< ui->listRosTopics->rowCount(); row++)
+              {
+                if( !ui->listRosTopics->isRowHidden(row) &&
+                    !ui->listRosTopics->item(row,0)->isSelected())
+                {
+                  ui->listRosTopics->selectRow(row);
+                }
+              }
+            });
 
     connect( &_deselect_all, &QShortcut::activated,
              ui->listRosTopics, &QAbstractItemView::clearSelection );
@@ -140,6 +150,8 @@ void DialogSelectRosTopics::updateTopicList(std::vector<std::pair<QString, QStri
 
 DialogSelectRosTopics::~DialogSelectRosTopics()
 {
+    QSettings settings;
+    settings.setValue("DialogSelectRosTopics.geometry", saveGeometry());
     delete ui;
 }
 
@@ -186,12 +198,6 @@ void DialogSelectRosTopics::on_pushButtonEditRules_pressed()
 {
     RuleEditing* rule_editing = new RuleEditing(this);
     rule_editing->exec();
-}
-
-void DialogSelectRosTopics::closeEvent(QCloseEvent *event)
-{
-    QSettings settings;
-    settings.setValue("DialogSelectRosTopics.geometry", saveGeometry());
 }
 
 nonstd::optional<double> FlatContainerContainHeaderStamp(const RosIntrospection::FlatMessage& flat_msg)

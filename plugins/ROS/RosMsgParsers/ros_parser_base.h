@@ -7,13 +7,17 @@
 #include <ros/builtin_message_traits.h>
 #include <ros/message_operations.h>
 #include <std_msgs/Header.h>
+#include <fmt/format.h>
 
 
 class RosParserBase : public MessageParser
 {
 public:
 
-    void setUseHeaderStamp( bool use )
+    RosParserBase(): _use_header_stamp(false){
+    }
+
+    virtual void setUseHeaderStamp( bool use )
     {
         _use_header_stamp = use;
     }

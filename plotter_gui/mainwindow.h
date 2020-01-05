@@ -41,7 +41,9 @@ public:
 
 public slots:
 
-    void resizeEvent(QResizeEvent *) ;
+    void resizeEvent(QResizeEvent *);
+    void showEvent(QShowEvent *ev);
+
 
     // Undo - Redo
     void onUndoableChange();
@@ -214,6 +216,7 @@ public slots:
 private slots:
     void on_stylesheetChanged(QString style_name);
     void on_actionPreferences_triggered();
+    void on_actionShare_the_love_triggered();
 };
 
 

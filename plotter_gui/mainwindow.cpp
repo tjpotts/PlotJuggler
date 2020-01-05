@@ -74,23 +74,11 @@ MainWindow::MainWindow(const QCommandLineParser &commandline_parser, QWidget *pa
         ui->streamingSpinBox->setMaximum(buffer_size);
     }
 
-    {
-        QIcon icon( tr(":/%1/office_chart_line_stacked.png").arg(_style_directory) );
-        if (!icon.isNull())
-        {
-            this->setWindowIcon(icon);
-            QApplication::setWindowIcon(icon);
-        }
-    }
-
     connect(this, &MainWindow::stylesheetChanged,
             this, &MainWindow::on_stylesheetChanged);
 
     connect(this, &MainWindow::stylesheetChanged,
             _curvelist_widget, &CurveListPanel::on_stylesheetChanged);
-
-    connect( _curvelist_widget->getTableView()->verticalScrollBar(), &QScrollBar::sliderMoved,
-             this, &MainWindow::onUpdateLeftTableValues );
 
     connect( _curvelist_widget, &CurveListPanel::hiddenItemsChanged,
              this, &MainWindow::onUpdateLeftTableValues );
@@ -106,9 +94,6 @@ MainWindow::MainWindow(const QCommandLineParser &commandline_parser, QWidget *pa
 
     connect(_curvelist_widget, &CurveListPanel::refreshMathPlot,
             this, &MainWindow::on_refreshMathPlot);
-
-    connect(_curvelist_widget->getTableView()->verticalScrollBar(), &QScrollBar::valueChanged,
-            this, &MainWindow::onUpdateLeftTableValues );
 
     connect( ui->timeSlider, &RealSlider::realValueChanged,
              this, &MainWindow::onTimeSlider_valueChanged );
@@ -131,6 +116,7 @@ MainWindow::MainWindow(const QCommandLineParser &commandline_parser, QWidget *pa
     ui->splitter->setCollapsible(0,true);
     ui->splitter->setStretchFactor(0,2);
     ui->splitter->setStretchFactor(1,6);
+
 
     connect( ui->splitter, SIGNAL(splitterMoved(int,int)), SLOT(on_splitterMoved(int,int)) );
 
@@ -283,63 +269,7 @@ void MainWindow::onUndoInvoked( )
 
 void MainWindow::onUpdateLeftTableValues()
 {
-    auto table_model = _curvelist_widget->getTableModel();
-
-    for(auto table_view: { _curvelist_widget->getTableView(), _curvelist_widget->getCustomView() } )
-    {
-        if( _curvelist_widget->is2ndColumnHidden() )
-        {
-            continue;
-        }
-
-        const int vertical_height = table_view->visibleRegion().boundingRect().height();
-
-        for (int row = 0; row < _curvelist_widget->rowCount(); row++)
-        {
-            int vertical_pos = table_view->rowViewportPosition(row);
-            if( vertical_pos < 0 || table_view->isRowHidden(row) ){ continue; }
-            if( vertical_pos > vertical_height){ break; }
-
-            const std::string& name = table_model->item(row,0)->text().toStdString();
-            auto it = _mapped_plot_data.numeric.find(name);
-            if( it !=  _mapped_plot_data.numeric.end())
-            {
-                auto& data = it->second;
-
-                double num = 0.0;
-                bool valid = false;
-
-                if( _tracker_time < std::numeric_limits<double>::max())
-                {
-                    auto value = data.getYfromX( _tracker_time );
-                    if(value){
-                        valid = true;
-                        num = value.value();
-                    }
-                }
-                else if( data.size() > 0)
-                {
-                    valid = true;
-                    num = data.back().y;
-                }
-                if( valid )
-                {
-                    QString num_text = QString::number( num, 'f', 3);
-                    if(num_text.contains('.'))
-                    {
-                        int idx = num_text.length() -1;
-                        while( num_text[idx] == '0' )
-                        {
-                            num_text[idx] = ' ';
-                            idx--;
-                        }
-                        if(  num_text[idx] == '.') num_text[idx] = ' ';
-                    }
-                    table_model->item(row,1)->setText(num_text + ' ');
-                }
-            }
-        }
-    }
+    _curvelist_widget->update2ndColumnValues( _tracker_time, &_mapped_plot_data.numeric );
 }
 
 
@@ -481,7 +411,6 @@ void MainWindow::initializePlugins(QString directory_name)
             if( loader )    plugin_name = loader->name();
             if( publisher ) plugin_name = publisher->name();
             if( streamer )  plugin_name = streamer->name();
-            plugin_name.replace(" ", "_");
 
             if( loaded_plugins.find(plugin_name) == loaded_plugins.end())
             {
@@ -641,7 +570,25 @@ void MainWindow::on_splitterMoved(int , int )
 
 void MainWindow::resizeEvent(QResizeEvent *)
 {
-    on_splitterMoved( 0, 0 );
+  on_splitterMoved( 0, 0 );
+}
+
+void MainWindow::showEvent(QShowEvent *ev)
+{
+  QMainWindow::showEvent(ev);
+
+  static bool first = true;
+  if( first )
+  {
+    first = false;
+    QSettings settings;
+    int splitter_width = settings.value("MainWindow.splitterWidth", 200).toInt();
+    QList<int> splitter_sizes = ui->splitter->sizes();
+    int tot_splitter_width = splitter_sizes[0] + splitter_sizes[1];
+    splitter_sizes[0] = splitter_width;
+    splitter_sizes[1] = tot_splitter_width - splitter_width;
+    ui->splitter->setSizes(splitter_sizes);
+  }
 }
 
 
@@ -770,7 +717,7 @@ void MainWindow::checkAllCurvesFromLayout(const QDomElement& root)
         {
             for(auto& name: missing_curves )
             {
-                _curvelist_widget->addItem( QString::fromStdString( name ) );
+                _curvelist_widget->addCurve( QString::fromStdString( name ) );
                 _mapped_plot_data.addNumeric(name);
             }
             _curvelist_widget->refreshColumns();
@@ -859,11 +806,7 @@ void MainWindow::onDeleteMultipleCurves(const std::vector<std::string> &curve_na
             _custom_plots.erase( custom_it );
         }
 
-        int row = _curvelist_widget->findRowByName( curve_name );
-        if( row != -1 )
-        {
-            _curvelist_widget->removeRow(row);
-        }
+        _curvelist_widget->removeCurve(curve_name);
     }
 
     forEachWidget( [](PlotWidget* plot) {
@@ -1066,7 +1009,7 @@ void MainWindow::importPlotDataMap(PlotDataMapRef& new_data, bool remove_old)
         const std::string& name  = it.first;
         if( it.second.size()>0 && _mapped_plot_data.numeric.count(name) == 0)
         {
-            _curvelist_widget->addItem( QString::fromStdString( name ) );
+            _curvelist_widget->addCurve( QString::fromStdString( name ) );
             curvelist_modified = true;
         }
     }
@@ -1105,10 +1048,10 @@ bool MainWindow::loadDataFromFiles( QStringList filenames )
     char prefix_ch = 'A';
     QStringList loaded_filenames;
 
-    for( const auto& filename: filenames)
+    for( int i=0; i<filenames.size(); i++)
     {
         FileLoadInfo info;
-        info.filename = filename;
+        info.filename = filenames[i];
         if( filenames.size() > 1 )
         {
             info.prefix = prefix_ch;
@@ -1116,7 +1059,7 @@ bool MainWindow::loadDataFromFiles( QStringList filenames )
 
         if( loadDataFromFile(info) )
         {
-            loaded_filenames.push_back(filename);
+            loaded_filenames.push_back(filenames[i]);
             prefix_ch++;
         }
     }
@@ -1124,12 +1067,14 @@ bool MainWindow::loadDataFromFiles( QStringList filenames )
     {
         updateRecentDataMenu(loaded_filenames);
         return true;
-    }
+    }    
     return false;
 }
 
 bool MainWindow::loadDataFromFile(const FileLoadInfo& info)
 {
+    ui->pushButtonPlay->setChecked(false);
+
     const QString extension = QFileInfo(info.filename).suffix().toLower();
 
     typedef std::map<QString,DataLoader*>::iterator MapIterator;
@@ -1209,7 +1154,22 @@ bool MainWindow::loadDataFromFile(const FileLoadInfo& info)
                 QDomElement plugin_elem = dataloader->xmlSaveState(new_info.plugin_config);
                 new_info.plugin_config.appendChild( plugin_elem );
 
-                _loaded_datafiles.push_back(new_info);
+                bool duplicate = false;
+
+                // substitute an old item of _loaded_datafiles or push_back another item.
+                for( auto& prev_loaded: _loaded_datafiles)
+                {
+                  if( prev_loaded.filename == new_info.filename &&  prev_loaded.prefix == new_info.prefix)
+                  {
+                    prev_loaded = new_info;
+                    duplicate = true;
+                    break;
+                  }
+                }
+
+                if( ! duplicate ){
+                  _loaded_datafiles.push_back(new_info);
+                }
             }
         }
         catch(std::exception &ex)
@@ -1338,7 +1298,7 @@ void MainWindow::loadPluginState(const QDomElement& root)
         if( plugin_elem.nodeName() != "plugin" || plugin_name.isEmpty() )
         {
             QMessageBox::warning(this, tr("Error loading Plugin State from Layout"),
-                                 tr("The method xmlSaveState() must return a node line this <plugin ID=\"PluginName\" ") );
+                                 tr("The method xmlSaveState() must return a node like this <plugin ID=\"PluginName\" ") );
         }
 
         if( _data_loader.find(plugin_name) != _data_loader.end() )
@@ -1371,8 +1331,8 @@ QDomElement MainWindow::savePluginState(QDomDocument& doc)
         if( elem.nodeName() != "plugin" || elem.attribute("ID") !=  expected_name )
         {
             QMessageBox::warning(this, tr("Error saving Plugin State to Layout"),
-                                 tr("[%1] The method xmlSaveState() must return a node line this <plugin ID=\"PluginName\">")
-                                 .arg(expected_name) );
+                                 tr("The method xmlSaveState() returned\n<plugin ID=\"%1\">\ninstead of\n<plugin ID=\"%2\">")
+                                     .arg(elem.attribute("ID")).arg(expected_name) );
         }
     };
 
@@ -1471,7 +1431,7 @@ std::tuple<double, double, int> MainWindow::calculateVisibleRangeX()
     return std::tuple<double,double,int>( min_time, max_time, max_steps );
 }
 
-static const QString LAYOUT_VERSION = "2.3.0";
+static const QString LAYOUT_VERSION = "2.3.8";
 
 bool MainWindow::loadLayoutFromFile(QString filename)
 {
@@ -1605,7 +1565,7 @@ bool MainWindow::loadLayoutFromFile(QString filename)
                 const auto& name = new_custom_plot->name();
                 _custom_plots[name] = new_custom_plot;
                 new_custom_plot->calculateAndAdd( _mapped_plot_data );
-                _curvelist_widget->addItem( QString::fromStdString( name ) );
+                _curvelist_widget->addCustom( QString::fromStdString( name ) );
             }
             _curvelist_widget->refreshColumns();
         }
@@ -1873,19 +1833,19 @@ void MainWindow::updateDataAndReplot(bool replot_hidden_tabs)
 
         for(const auto& str: curvelist_added)
         {
-            _curvelist_widget->addItem(str);
+            _curvelist_widget->addCurve(str);
         }
 
         if( curvelist_added.size() > 0  )
         {
             _curvelist_widget->refreshColumns();
         }
+    }
 
-        for( auto& custom_it: _custom_plots)
-        {
-            auto* dst_plot = &_mapped_plot_data.numeric.at(custom_it.first);
-            custom_it.second->calculate(_mapped_plot_data, dst_plot);
-        }
+    for( auto& custom_it: _custom_plots)
+    {
+        auto* dst_plot = &_mapped_plot_data.numeric.at(custom_it.first);
+        custom_it.second->calculate(_mapped_plot_data, dst_plot);
     }
 
     const bool is_streaming_active = isStreamingActive();
@@ -2072,6 +2032,11 @@ void MainWindow::on_actionClearBuffer_triggered()
         it.second.clear();
     }
 
+    for (auto& it: _custom_plots )
+    {
+        it.second->clear();
+    }
+
     forEachWidget( [](PlotWidget* plot) {
         plot->reloadPlotData();
         plot->replot();
@@ -2121,7 +2086,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     settings.setValue("MainWindow.streamingBufferValue", ui->streamingSpinBox->value() );
     settings.setValue("MainWindow.removeTimeOffset",ui->pushButtonRemoveTimeOffset->isChecked() );
     settings.setValue("MainWindow.dateTimeDisplay", ui->pushButtonUseDateTime->isChecked() );
-    settings.setValue("MainWindow.timeTrackerSetting", (int)_tracker_param );
+    settings.setValue("MainWindow.timeTrackerSetting", (int)_tracker_param );  
+    settings.setValue("MainWindow.splitterWidth", ui->splitter->sizes()[0]);
 
     // clean up all the plugins
     for(auto& it : _data_loader ) { delete it.second; }
@@ -2221,7 +2187,7 @@ void MainWindow::addOrEditMathPlot(const std::string &name, bool modifying)
 
         if(!modifying)
         {
-            _curvelist_widget->addItem(qplot_name);
+            _curvelist_widget->addCustom(qplot_name);
         }
         onUpdateLeftTableValues();
 
@@ -2273,6 +2239,12 @@ void MainWindow::on_actionReportBug_triggered()
     QDesktopServices::openUrl( QUrl( "https://github.com/facontidavide/PlotJuggler/issues" ));
 }
 
+void MainWindow::on_actionShare_the_love_triggered()
+{
+    QDesktopServices::openUrl( QUrl( "https://twitter.com/intent/tweet?hashtags=PlotJuggler" ));
+}
+
+
 void MainWindow::on_actionAbout_triggered()
 {
     QDialog* dialog = new QDialog(this);
@@ -2318,7 +2290,7 @@ void MainWindow::on_actionSaveAllPlotTabs_triggered()
     QString directory_path  = settings.value("MainWindow.saveAllPlotTabs",
                                              QDir::currentPath() ).toString();
     // Get destination folder
-    QFileDialog saveDialog;
+    QFileDialog saveDialog(this);
     saveDialog.setDirectory(directory_path);
     saveDialog.setFileMode(QFileDialog::FileMode::Directory);
     saveDialog.setAcceptMode(QFileDialog::AcceptSave);
@@ -2420,7 +2392,7 @@ void MainWindow::on_actionLoadData_triggered()
 
     QString directory_path = settings.value("MainWindow.lastDatafileDirectory", QDir::currentPath() ).toString();
 
-    QFileDialog loadDialog( this );
+    QFileDialog loadDialog(this);
     loadDialog.setFileMode(QFileDialog::ExistingFiles);
     loadDialog.setViewMode(QFileDialog::Detail);
     loadDialog.setNameFilter(file_extension_filter);
@@ -2475,7 +2447,7 @@ void MainWindow::on_actionSaveLayout_triggered()
     QString directory_path  = settings.value("MainWindow.lastLayoutDirectory",
                                              QDir::currentPath() ).toString();
 
-    QFileDialog saveDialog;
+    QFileDialog saveDialog(this);
     saveDialog.setOption(QFileDialog::DontUseNativeDialog, true);
 
     QGridLayout *save_layout = static_cast<QGridLayout*>(saveDialog.layout());
@@ -2567,7 +2539,6 @@ void MainWindow::on_actionSaveLayout_triggered()
         {
             QDomElement loaded_streamer =  doc.createElement( "previouslyLoaded_Streamer" );
             QString streamer_name = _current_streamer->name();
-            streamer_name.replace(" ", "_");
             loaded_streamer.setAttribute("name", streamer_name );
             root.appendChild( loaded_streamer );
         }
@@ -2716,3 +2687,4 @@ void MainWindow::on_actionPreferences_triggered()
         emit stylesheetChanged(_style_directory);
     }
 }
+

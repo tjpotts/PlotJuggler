@@ -5,10 +5,11 @@
 #include "pal_statistics_msg.h"
 #include "odometry_msg.h"
 #include "fiveai_stamped_diagnostic.h"
-#include <absl/strings/charconv.h>
+
 
 RosMessageParser::RosMessageParser()
 {
+  _introspection_parser.reset( new RosIntrospection::Parser );
 }
 
 void RosMessageParser::clear()
@@ -108,21 +109,19 @@ void RosMessageParser::pushMessageRef(const std::string &topic_name,
     auto builtin_it = _builtin_parsers.find( topic_name );
     if( builtin_it != _builtin_parsers.end() )
     {
+        builtin_it->second->setUseHeaderStamp(_use_header_stamp); // bug fix #202
         builtin_it->second->pushMessageRef( builtin_it->first, msg, timestamp );
         return;
     }
 
     using namespace RosIntrospection;
 
-    FlatMessage flat_container;
-    RenamedValues renamed_values;
-
-    absl::Span<uint8_t> msg_view ( const_cast<uint8_t*>(msg.data()), msg.size() );
+    _introspection_parser->setBlobPolicy( RosIntrospection::Parser::STORE_BLOB_AS_REFERENCE );
 
     bool max_size_ok = _introspection_parser->deserializeIntoFlatContainer(
                 topic_name,
-                msg_view,
-                &flat_container,
+                {const_cast<uint8_t*>(msg.data()), static_cast<long>(msg.size())},
+                &_flat_container,
                 _max_array_size );
 
     if( !max_size_ok && _warnings_enabled )
@@ -131,11 +130,11 @@ void RosMessageParser::pushMessageRef(const std::string &topic_name,
     }
 
     _introspection_parser->applyNameTransform( topic_name,
-                                               flat_container,
-                                               &renamed_values );
+                                               _flat_container,
+                                               &_renamed_values );
     if(_use_header_stamp)
     {
-        for (const auto& it: flat_container.value)
+        for (const auto& it: _flat_container.value)
         {
             if( it.second.getTypeID() != RosIntrospection::TIME)
             {
@@ -181,13 +180,13 @@ void RosMessageParser::pushMessageRef(const std::string &topic_name,
 //            temp_leaf.node_ptr = temp_leaf.node_ptr->parent();
 //            if( !temp_leaf.node_ptr ) continue;
 
-//            renamed_values.push_back( { absl::StrCat( temp_leaf.toStdString(), "/", flat_container.name[n].second), num } );
+//            renamed_values.push_back( { StrCat( temp_leaf.toStdString(), "/", flat_container.name[n].second), num } );
 //        }
 //    }
 
     //----------------------------
 
-    for(const auto& it: renamed_values )
+    for(const auto& it: _renamed_values )
     {
         const auto& field_name = it.first;
 

@@ -43,8 +43,7 @@ CustomFunction::CustomFunction(const std::string &linkedPlot,
     _linked_plot_name(linkedPlot),
     _plot_name(plotName),
     _global_vars(globalVars),
-    _function(function),
-    _last_updated_timestamp( - std::numeric_limits<double>::max() )
+    _function(function)
 {
 
     QString qLinkedPlot = QString::fromStdString(_linked_plot_name);
@@ -173,7 +172,12 @@ void CustomFunction::calculate(const PlotDataMapRef &plotData, PlotData* dst_dat
         // failed! keep it empty
         return;
     }
+
     const PlotData& src_data = src_data_it->second;
+    if( src_data.size() == 0)
+    {
+        return;
+    }
 
     // clean up old data
     dst_data->setMaximumRangeX( src_data.maximumRangeX() );
@@ -194,15 +198,18 @@ void CustomFunction::calculate(const PlotDataMapRef &plotData, PlotData* dst_dat
 
     QJSValue chan_values = _jsEngine->newArray(static_cast<quint32>(_used_channels.size()));
 
+    double last_updated_stamp = -std::numeric_limits<double>::max();
+    if (dst_data->size() != 0)
+    {
+        last_updated_stamp = dst_data->back().x;
+    }
+
     for(size_t i=0; i < src_data.size(); ++i)
     {
-        if( src_data.at(i).x > _last_updated_timestamp)
+        if( src_data.at(i).x > last_updated_stamp)
         {
             dst_data->pushBack( calculatePoint(calcFct, src_data, channel_data, chan_values, i ) );
         }
-    }
-    if (dst_data->size() != 0){
-      _last_updated_timestamp = dst_data->back().x;
     }
 }
 

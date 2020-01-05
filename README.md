@@ -8,7 +8,7 @@
 [![Join the chat at https://gitter.im/PlotJuggler/Lobby](https://badges.gitter.im/PlotJuggler/Lobby.svg)](https://gitter.im/PlotJuggler/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=I%20use%20PlotJuggler%20and%20it%20is%20amazing%0D%0A&url=https://github.com/facontidavide/PlotJuggler&via=facontidavide&hashtags=dataviz,plotjuggler,GoROS,PX4)
 
-# PlotJuggler 2.3.0
+# PlotJuggler 2.5.0
 
 QT5 based application to display time series in plots, using an intuitive "drag and drop" interface.
 
@@ -50,13 +50,13 @@ Watch this video to learn how to use it.
 
 ## "Download and Run" (Ubuntu 16.04 Xenial or later)
 
-For those of you that can't wait to get your hands dirty, just download this AppImage:
+For those of you that can't wait and want to get their hands dirty, just download this AppImage:
 
-[PlotJuggler-2.1.10-x86_64.AppImage](https://github.com/facontidavide/PlotJuggler/releases/download/2.1.10/PlotJuggler-2.1.10-x86_64.AppImage).
+[PlotJuggler-2.4.3-x86_64.AppImage](https://github.com/facontidavide/PlotJuggler/releases/download/2.4.3/PlotJuggler-2.4.3-x86_64.AppImage).
    
 Do not forget to make it executable with the command 
 
-    chmod +x ./PlotJuggler-2.1.10-x86_64.AppImage
+    chmod +x ./PlotJuggler-*-x86_64.AppImage
 
 ## How to build (without ROS plugins)
 
@@ -95,7 +95,7 @@ you __must__ build PlotJuggler using __catkin__, otherwise the ROS related plugi
 
 Follow these instructions:
 
-    sudo apt-get install qtbase5-dev libqt5svg5-dev ros-kinetic-ros-type-introspection 
+    sudo apt-get install qtbase5-dev libqt5svg5-dev libqt5multimedia ros-$ROS_DISTRO-ros-type-introspection
     mkdir -p ws_plotjuggler/src; cd ws_plotjuggler/src
     git clone https://github.com/facontidavide/PlotJuggler.git
     cd ..
@@ -117,9 +117,9 @@ To run the application, use the command:
 PlotJuggler required a lot of work to be developed; my goal is to build the most
 intuitive and powerfull tool to visualize data and timeseries.
 
-If you find PlotJuggler useful, consider making a donation on any of these platforms: 
+If you find PlotJuggler useful, consider making a donation on 
 [PayPal](https://www.paypal.me/facontidavide) or 
-[LiveraPay](https://en.liberapay.com/facontidavide/).
+
 
 If you use PlotJuggler at work, your company can become a __sponsor__ and support 
 the development of those specific features they need.

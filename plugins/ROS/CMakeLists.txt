@@ -34,10 +34,12 @@ QT5_WRAP_UI ( COMMON_UI_SRC
     )
 
 add_library( commonROS STATIC ${COMMON_SRC} ${COMMON_UI_SRC} )
-target_link_libraries( commonROS
+target_link_libraries( commonROS PRIVATE
   ${Qt5Widgets_LIBRARIES}
   ${Qt5Xml_LIBRARIES}
   ${catkin_LIBRARIES}
+  fmt::fmt-header-only
+  marl
   )
 
 

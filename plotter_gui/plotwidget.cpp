@@ -6,12 +6,15 @@
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QMenu>
 #include <QMimeData>
+#include <QPainter>
 #include <QPushButton>
 #include <QWheelEvent>
 #include <QSettings>
+#include <QSvgGenerator>
 #include <iostream>
 #include <limits>
 #include <set>
@@ -20,6 +23,7 @@
 #include "qwt_scale_widget.h"
 #include "qwt_plot_canvas.h"
 #include "qwt_scale_engine.h"
+#include "qwt_scale_map.h"
 #include "qwt_plot_layout.h"
 #include "qwt_scale_draw.h"
 #include "qwt_text.h"
@@ -29,11 +33,49 @@
 #include "qwt_plot_renderer.h"
 #include "qwt_series_data.h"
 #include "qwt_date_scale_draw.h"
-#include "PlotJuggler/random_color.h"
 #include "point_series_xy.h"
 #include "suggest_dialog.h"
 #include "transforms/custom_function.h"
 #include "transforms/custom_timeseries.h"
+
+int PlotWidget::global_color_index = 0;
+
+QColor PlotWidget::getColorHint(PlotData* data)
+{
+  QSettings settings;
+  bool remember_color = settings.value("Preferences::remember_color", true).toBool();
+  if( data && remember_color && data->getColorHint() != Qt::black )
+  {
+    return data->getColorHint();
+  }
+  QColor color;
+  bool use_plot_color_index = settings.value("Preferences::use_plot_color_index", false).toBool();
+  int index = _curve_list.size();
+
+  if( !use_plot_color_index )
+  {
+    index = (PlotWidget::global_color_index++);
+  }
+
+  // https://matplotlib.org/3.1.1/users/dflt_style_changes.html
+  switch( index%8 )
+  {
+    case 0:  color =  QColor("#1f77b4");   break;
+    case 1:  color =  QColor("#d62728");   break;
+    case 2:  color =  QColor("#1ac938");   break;
+    case 3:  color =  QColor("#ff7f0e");   break;
+
+    case 4:  color =  QColor("#f14cc1");   break;
+    case 5:  color =  QColor("#9467bd");   break;
+    case 6:  color =  QColor("#17becf");   break;
+    case 7:  color =  QColor("#bcbd22");   break;
+  }
+  if( data ){
+    data->setColorHint(color);
+  }
+
+  return color;
+}
 
 class TimeScaleDraw: public QwtScaleDraw
 {
@@ -78,6 +120,7 @@ PlotWidget::PlotWidget(PlotDataMapRef &datamap, QWidget *parent):
     _xy_mode(false),
     _transform_select_dialog(nullptr),
     _use_date_time_scale(false),
+    _color_index(0),
     _zoom_enabled(true),
     _keep_aspect_ratio(true)
 {
@@ -216,8 +259,9 @@ void PlotWidget::buildActions()
     _action_noTransform = new QAction(tr("&NO Transform"), this);
     _action_noTransform->setCheckable( true );
     _action_noTransform->setChecked( true );
-    connect(_action_noTransform, &QAction::triggered, this, [this, font]()
+    connect(_action_noTransform, &QAction::changed, this, [this, font]()
     {
+        if( !_action_noTransform->isChecked() ){ return; }
         QwtText text("");
         text.setFont(font);
         this->setFooter(text);
@@ -226,8 +270,9 @@ void PlotWidget::buildActions()
 
     _action_1stDerivativeTransform = new QAction(tr("&1st Derivative"), this);
     _action_1stDerivativeTransform->setCheckable( true );
-    connect(_action_1stDerivativeTransform, &QAction::triggered, this, [this, font]()
+    connect(_action_1stDerivativeTransform, &QAction::changed, this, [this, font]()
     {
+        if( !_action_1stDerivativeTransform->isChecked() ){ return; }
         QwtText text("1st Derivative");
         text.setFont(font);
         this->setFooter(text);
@@ -236,8 +281,9 @@ void PlotWidget::buildActions()
 
     _action_2ndDerivativeTransform = new QAction(tr("&2nd Derivative"), this);
     _action_2ndDerivativeTransform->setCheckable( true );
-    connect(_action_2ndDerivativeTransform, &QAction::triggered, this, [this, font]()
+    connect(_action_2ndDerivativeTransform, &QAction::changed, this, [this, font]()
     {
+        if( !_action_2ndDerivativeTransform->isChecked() ){ return; }
         QwtText text("2nd Derivative");
         text.setFont(font);
         this->setFooter(text);
@@ -252,12 +298,17 @@ void PlotWidget::buildActions()
     _action_saveToFile = new QAction("&Save plot to file", this);
     connect(_action_saveToFile, &QAction::triggered, this, &PlotWidget::on_savePlotToFile);
 
+    _action_XY_transform = new QAction(tr("&XY Plot"), this);
+    _action_XY_transform->setCheckable( true );
+    _action_XY_transform->setEnabled(false);
+
     auto transform_group = new QActionGroup(this);
 
     transform_group->addAction(_action_noTransform);
     transform_group->addAction(_action_1stDerivativeTransform);
     transform_group->addAction(_action_2ndDerivativeTransform);
     transform_group->addAction(_action_custom_transform);
+    transform_group->addAction(_action_XY_transform);
 }
 
 
@@ -299,6 +350,7 @@ void PlotWidget::canvasContextMenuTriggered(const QPoint &pos)
     menu.addAction(_action_zoomOutVertically);
     menu.addSeparator();
     menu.addAction( _action_noTransform );
+    menu.addAction( _action_XY_transform );
     menu.addAction( _action_1stDerivativeTransform );
     menu.addAction( _action_2ndDerivativeTransform );
     menu.addAction( _action_custom_transform );
@@ -314,7 +366,7 @@ void PlotWidget::canvasContextMenuTriggered(const QPoint &pos)
     _action_2ndDerivativeTransform->setEnabled( !_xy_mode );
     _action_custom_transform->setEnabled( !_xy_mode );
 
-    menu.exec( canvas()->mapToGlobal(pos) );
+     menu.exec(canvas()->mapToGlobal(pos));
 }
 
 
@@ -356,13 +408,9 @@ bool PlotWidget::addCurve(const std::string &name)
 
     curve->setStyle( _curve_style );
 
-    QColor color = data.getColorHint();
-    if( color == Qt::black)
-    {
-        color = randomColorHint();
-        data.setColorHint(color);
-    }
-    curve->setPen( color,  (_curve_style == QwtPlotCurve::Dots) ? 4 : 0.8 );
+    QColor color = getColorHint(&data);
+
+    curve->setPen( color,  (_curve_style == QwtPlotCurve::Dots) ? 4 : 1.0 );
     curve->setRenderHint( QwtPlotItem::RenderAntialiased, true );
 
     curve->attach( this );
@@ -388,12 +436,7 @@ bool PlotWidget::addCurveXY(std::string name_x, std::string name_y,
 {
     std::string name = curve_name.toStdString() ;
 
-    auto isValid = [&](const std::string& str) -> bool
-    {
-        return  !str.empty() && _curve_list.count( str ) == 0;
-    };
-
-    while( !isValid(name) )
+    while( name.empty() )
     {
         SuggestDialog dialog( name_x, name_y, this );
 
@@ -403,7 +446,7 @@ bool PlotWidget::addCurveXY(std::string name_x, std::string name_y,
         name_x = dialog.nameX().toStdString();
         name_y = dialog.nameY().toStdString();
 
-        if ( !ok || !isValid(name) )
+        if ( !ok || name.empty() || _curve_list.count( name ) != 0 )
         {
             int ret = QMessageBox::warning(this, "Missing name",
                                            "The name is missing or invalid. Try again or abort.",
@@ -435,7 +478,6 @@ bool PlotWidget::addCurveXY(std::string name_x, std::string name_y,
         return false;
     }
 
-    PlotData& data = it->second;
     const auto qname = QString::fromStdString( name );
 
     auto curve = new QwtPlotCurve( qname );
@@ -455,13 +497,9 @@ bool PlotWidget::addCurveXY(std::string name_x, std::string name_y,
 
     curve->setStyle( _curve_style );
 
-    QColor color = data.getColorHint();
-    if( color == Qt::black)
-    {
-        color = randomColorHint();
-        data.setColorHint(color);
-    }
-    curve->setPen( color,  (_curve_style == QwtPlotCurve::Dots) ? 4 : 0.8 );
+    QColor color = getColorHint(nullptr);
+
+    curve->setPen( color,  (_curve_style == QwtPlotCurve::Dots) ? 4 : 1.0 );
     curve->setRenderHint( QwtPlotItem::RenderAntialiased, true );
 
     curve->attach( this );
@@ -484,26 +522,43 @@ bool PlotWidget::addCurveXY(std::string name_x, std::string name_y,
 
 void PlotWidget::removeCurve(const std::string &curve_name)
 {
-    auto it = _curve_list.find(curve_name);
-    if( it != _curve_list.end() )
-    {
-        auto& curve = it->second;
-        curve->detach();
-        _curve_list.erase( it );
+    bool deleted = false;
 
-        auto marker_it = _point_marker.find(curve_name);
-        if( marker_it != _point_marker.end() )
+    for(auto it = _curve_list.begin(); it != _curve_list.end(); )
+    {
+        PointSeriesXY* curve_xy = dynamic_cast<PointSeriesXY*>(it->second->data());
+        bool remove_curve_xy = curve_xy && (curve_xy->dataX()->name() == curve_name ||
+                                            curve_xy->dataY()->name() == curve_name);
+
+        if( it->first == curve_name || remove_curve_xy )
         {
-            auto marker = marker_it->second;
-            if( marker ){
-                marker->detach();
+            deleted = true;
+            auto& curve = it->second;
+            curve->detach();
+
+            auto marker_it = _point_marker.find( it->first );
+            if( marker_it != _point_marker.end() )
+            {
+                auto marker = marker_it->second;
+                if( marker ){
+                    marker->detach();
+                }
+                _point_marker.erase(marker_it);
             }
-            _point_marker.erase(marker_it);
+
+            _curves_transform.erase( it->first );
+            it = _curve_list.erase( it );
         }
+        else{
+            it++;
+        }
+    }
+
+    if( deleted)
+    {
         _tracker->redraw();
         emit curveListChanged();
     }
-    _curves_transform.erase( curve_name );
 }
 
 bool PlotWidget::isEmpty() const
@@ -524,6 +579,8 @@ void PlotWidget::dragEnterEvent(QDragEnterEvent *event)
     QStringList mimeFormats = mimeData->formats();
     _dragging.curves.clear();
     _dragging.source = event->source();
+
+
     for(const QString& format: mimeFormats)
     {
         QByteArray encoded = mimeData->data( format );
@@ -538,17 +595,23 @@ void PlotWidget::dragEnterEvent(QDragEnterEvent *event)
             }
         }
 
-        if( format.contains( "curveslist/add_curve") )
+        if( format == "curveslist/add_curve" )
         {
             _dragging.mode = DragInfo::CURVES;
             event->acceptProposedAction();
         }
-        if( format.contains( "curveslist/new_XY_axis") && _dragging.curves.size() == 2 )
+        if( format == "curveslist/new_XY_axis" )
         {
+            if( _dragging.curves.size() != 2)
+            {
+                qDebug() << "FATAL: Dragging " << _dragging.curves.size() <<" curves";
+                return;
+            }
+
             _dragging.mode = DragInfo::NEW_XY;
             event->acceptProposedAction();
         }
-        if( format.contains( "plot_area")  )
+        if( format == "plot_area" )
         {
             if(_dragging.curves.size() == 1 &&
                     windowTitle() != _dragging.curves.front() )
@@ -877,7 +940,7 @@ bool PlotWidget::xmlLoadState(QDomElement &plot_widget)
     if( curve_removed || curve_added)
     {
         _tracker->redraw();
-        replot();
+        //replot();
         emit curveListChanged();
     }
 
@@ -1024,12 +1087,12 @@ void PlotWidget::setConstantRatioXY(bool active)
     _keep_aspect_ratio = active;
     if( isXYPlot() && active)
     {
-        // TODo rescaler
         _zoomer->keepAspectratio( true );
     }
     else{
         _zoomer->keepAspectratio( false );
     }
+    zoomOut(false);
 }
 
 void PlotWidget::setZoomRectangle(QRectF rect, bool emit_signal)
@@ -1065,8 +1128,12 @@ void PlotWidget::setZoomRectangle(QRectF rect, bool emit_signal)
 
 void PlotWidget::reloadPlotData()
 {
+    int visible = 0;
     for (auto& curve_it: _curve_list)
     {
+        if (curve_it.second->isVisible())
+          visible++;
+
         auto& curve = curve_it.second;
         const auto& curve_name = curve_it.first;
 
@@ -1080,7 +1147,7 @@ void PlotWidget::reloadPlotData()
         }
     }
 
-    if( _curve_list.size() == 0){
+    if( _curve_list.size() == 0 || visible == 0){
         setDefaultRangeX();
     }
 }
@@ -1106,7 +1173,12 @@ void PlotWidget::configureTracker(CurveTracker::Parameter val)
 
 void PlotWidget::enableTracker(bool enable)
 {
-    _tracker->setEnabled( enable && !isXYPlot() );
+  _tracker->setEnabled( enable && !isXYPlot() );
+}
+
+bool PlotWidget::isTrackerEnabled() const
+{
+  return _tracker->isEnabled();
 }
 
 void PlotWidget::setTrackerPosition(double abs_time)
@@ -1152,17 +1224,18 @@ void PlotWidget::on_changeTimeOffset(double offset)
 
 void PlotWidget::on_changeDateTimeScale(bool enable)
 {
-    if( enable != _use_date_time_scale)
-    {
-        _use_date_time_scale = enable;
-        if( enable  )
-        {
-            setAxisScaleDraw(QwtPlot::xBottom, new TimeScaleDraw());
-        }
-        else{
-            setAxisScaleDraw(QwtPlot::xBottom, new QwtScaleDraw);
-        }
+  _use_date_time_scale = enable;
+  bool is_timescale = dynamic_cast<TimeScaleDraw*>(axisScaleDraw(QwtPlot::xBottom)) != nullptr;
+
+  if (enable && !isXYPlot()) {
+    if( !is_timescale ){
+      setAxisScaleDraw(QwtPlot::xBottom, new TimeScaleDraw());
     }
+  } else {
+    if( is_timescale ){
+      setAxisScaleDraw(QwtPlot::xBottom, new QwtScaleDraw);
+    }
+  }
 }
 
 
@@ -1173,6 +1246,9 @@ PlotData::RangeTime PlotWidget::getMaximumRangeX() const
 
     for(auto& it: _curve_list)
     {
+        if (!it.second->isVisible())
+            continue;
+
         auto series = static_cast<DataSeriesBase*>( it.second->data() );
         const auto max_range_X = series->getVisualizationRangeX();
         if( !max_range_X ) continue;
@@ -1205,6 +1281,9 @@ PlotData::RangeValue  PlotWidget::getMaximumRangeY( PlotData::RangeTime range_X)
 
     for(auto& it: _curve_list)
     {
+        if (!it.second->isVisible())
+            continue;
+
         auto series = static_cast<DataSeriesBase*>( it.second->data() );
 
         const auto max_range_X = series->getVisualizationRangeX();
@@ -1350,7 +1429,7 @@ void PlotWidget::on_showPoints_triggered()
     for(auto& it: _curve_list)
     {
         auto& curve = it.second;
-        curve->setPen( curve->pen().color(),  (_curve_style == QwtPlotCurve::Dots) ? 4 : 0.8 );
+        curve->setPen( curve->pen().color(),  (_curve_style == QwtPlotCurve::Dots) ? 4 : 1.0 );
         curve->setStyle( _curve_style );
     }
     replot();
@@ -1412,10 +1491,6 @@ void PlotWidget::on_changeToBuiltinTransforms(QString new_transform )
 {
     _xy_mode = false;
 
-    if( _default_transform == new_transform)
-    {
-        return;
-    }
     enableTracker(true);
 
     for(auto& it : _curve_list)
@@ -1438,6 +1513,7 @@ void PlotWidget::on_changeToBuiltinTransforms(QString new_transform )
 
     _default_transform = new_transform;
     zoomOut(true);
+    on_changeDateTimeScale(_use_date_time_scale);
     replot();
 }
 
@@ -1451,6 +1527,7 @@ bool PlotWidget::isXYPlot() const
 void PlotWidget::convertToXY()
 {
     _xy_mode = true;
+    _action_XY_transform->setChecked(true);
 
     enableTracker(false);
     _default_transform = "XYPlot";
@@ -1463,6 +1540,7 @@ void PlotWidget::convertToXY()
     this->setFooter( text );
 
     zoomOut(true);
+    on_changeDateTimeScale(_use_date_time_scale);
     replot();
 }
 
@@ -1571,11 +1649,16 @@ void PlotWidget::on_savePlotToFile()
 {
     QString fileName;
 
-    QFileDialog saveDialog;
+    QFileDialog saveDialog(this);
     saveDialog.setAcceptMode(QFileDialog::AcceptSave);
     saveDialog.setDefaultSuffix("png");
 
-    saveDialog.setNameFilter("Compatible formats (*.jpg *.jpeg *.png)");
+    QStringList filters;
+    filters << "png (*.png)"
+            << "jpg (*.jpg *.jpeg)"
+            << "svg (*.svg)";
+
+    saveDialog.setNameFilters(filters);
 
     saveDialog.exec();
 
@@ -1583,14 +1666,39 @@ void PlotWidget::on_savePlotToFile()
     {
         fileName = saveDialog.selectedFiles().first();
 
-        QPixmap pixmap (1200,900);
-        QPainter * painter = new QPainter(&pixmap);
-
-        if ( !fileName.isEmpty() )
+        if ( fileName.isEmpty() )
         {
-            QwtPlotRenderer rend;
-            rend.render(this, painter, QRect(0, 0, pixmap.width(), pixmap.height()));
+          return;
+        }
+
+        bool tracker_enabled =  _tracker->isEnabled();
+        if( tracker_enabled ){
+          this->enableTracker(false);
+          replot();
+        }
+
+        QRect documentRect(0,0,1200, 900);
+        QwtPlotRenderer rend;
+
+        if( QFileInfo(fileName).suffix().toLower() == "svg")
+        {
+          QSvgGenerator generator;
+          generator.setFileName( fileName );
+          generator.setResolution( 80 );
+          generator.setViewBox( documentRect );
+          QPainter painter( &generator );
+          rend.render( this, &painter, documentRect );
+        }
+        else {
+            QPixmap pixmap (1200,900);
+            QPainter painter(&pixmap);
+            rend.render(this, &painter, documentRect);
             pixmap.save(fileName);
+        }
+
+        if( tracker_enabled ){
+          this->enableTracker(true);
+          replot();
         }
     }
 }
@@ -1722,6 +1830,7 @@ bool PlotWidget::canvasEventFilter(QEvent *event)
                             auto &curve = _curve_list.at( curve_it.first );
                             curve->setVisible( !curve->isVisible() );
                             _tracker->redraw();
+                            on_zoomOutVertical_triggered();
                             replot();
                             return true;
                         }
@@ -1918,7 +2027,7 @@ bool PlotWidget::isLegendVisible() const
 
 void PlotWidget::setLegendAlignment(Qt::Alignment alignment)
 {
-    _legend->setAlignment( Qt::Alignment( Qt::AlignTop | alignment ) );
+    _legend->setAlignmentInCanvas( Qt::Alignment( Qt::AlignTop | alignment ) );
 }
 
 void PlotWidget::setZoomEnabled(bool enabled)
@@ -1937,8 +2046,6 @@ bool PlotWidget::isZoomEnabled() const
 
 void PlotWidget::replot()
 {
-    static int replot_count = 0;
-
     if( _zoomer ){
         _zoomer->setZoomBase( false );
     }

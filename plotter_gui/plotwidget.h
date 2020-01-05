@@ -83,6 +83,8 @@ protected:
 
     bool canvasEventFilter(QEvent *event);
 
+    QColor getColorHint(PlotData *data);
+
 signals:
     void swapWidgetsRequested(PlotWidget* source, PlotWidget* destination);
     void rectChanged(PlotWidget* self, QRectF rect );
@@ -117,6 +119,8 @@ public slots:
     void configureTracker(CurveTracker::Parameter val);
 
     void enableTracker(bool enable);
+
+    bool isTrackerEnabled() const;
 
     void setTrackerPosition(double abs_time);
 
@@ -165,6 +169,7 @@ private:
     QAction *_action_1stDerivativeTransform;
     QAction *_action_2ndDerivativeTransform;
     QAction *_action_custom_transform;
+    QAction *_action_XY_transform;
     QAction *_action_saveToFile;
     QAction *_action_editLimits;
 
@@ -178,6 +183,9 @@ private:
     QwtPlotGrid* _grid;
 
     bool _use_date_time_scale;
+
+    int _color_index;
+    static int global_color_index;
 
     PlotDataMapRef& _mapped_data;
     QString _default_transform;

@@ -2,6 +2,130 @@
 Changelog for package plotjuggler
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.5.0 (2019-12-19)
+------------------
+* Fix issues `#196 <https://github.com/facontidavide/PlotJuggler/issues/196>`_ and `#236 <https://github.com/facontidavide/PlotJuggler/issues/236>`_: allow user to use deterministic color sequence
+* fix the edit button
+* fix issue `#235 <https://github.com/facontidavide/PlotJuggler/issues/235>`_
+* Update appimage_howto.md
+* fix timestamp problem in streaming
+* Contributors: Davide Faconti
+
+2.4.3 (2019-11-21)
+------------------
+* less dark theme
+* bug fix
+* Contributors: Davide Faconti
+
+2.4.2 (2019-11-18)
+------------------
+* multithread ROS DataLoader
+* directories moved
+* manually resizable columns of table view
+* Contributors: Davide Faconti
+
+2.4.1 (2019-11-11)
+------------------
+* considerable speed improvement when MANY timeseries are loaded
+* bug fix: slow update of left curve table
+* AppImage update
+* meme update
+* Contributors: Davide Faconti
+
+2.4.0 (2019-11-10)
+------------------
+* Tree view  (`#226 <https://github.com/facontidavide/PlotJuggler/issues/226>`_)
+* fix issue `#225 <https://github.com/facontidavide/PlotJuggler/issues/225>`_
+* add version number of the layout syntax
+* fix issue `#222 <https://github.com/facontidavide/PlotJuggler/issues/222>`_
+* more readable plugin names
+* fix issue `#221 <https://github.com/facontidavide/PlotJuggler/issues/221>`_
+* Merge branch 'master' of github.com:facontidavide/PlotJuggler
+* minor bug fix
+* Contributors: Davide Faconti
+
+2.3.7 (2019-10-30)
+------------------
+* Dont take invisible curve into account for axis limit computation (`#185 <https://github.com/facontidavide/PlotJuggler/issues/185>`_)
+* consistent line width
+* do not close() a rosbag unless you accepted the dialog
+* important bug fix: stop playback when loading new data
+* fix bug in TopicPublisher
+* do complete reset of globals in custom functions
+* apply changes discussed in `#220 <https://github.com/facontidavide/PlotJuggler/issues/220>`_
+* Merge branch 'master' of github.com:facontidavide/PlotJuggler
+* cherry picking bug fix from `#220 <https://github.com/facontidavide/PlotJuggler/issues/220>`_ : update custom functions
+  Thanks @aeudes
+* Fix F10 is ambiguous (`#219 <https://github.com/facontidavide/PlotJuggler/issues/219>`_)
+* fix compilation and add feature `#218 <https://github.com/facontidavide/PlotJuggler/issues/218>`_
+* qwt updated
+* appImage instructions updated
+* Contributors: Davide Faconti, alexandre eudes
+
+2.3.6 (2019-10-16)
+------------------
+* fix issue `#215 <https://github.com/facontidavide/PlotJuggler/issues/215>`_
+* Contributors: Davide Faconti
+
+2.3.5 (2019-10-11)
+------------------
+* remember the size of the splitter
+* fix inveted XY
+* Contributors: Davide Faconti
+* remember last splashscreen
+* Update README.md
+* Update appimage_howto.md
+* fix warning
+* meme fixed
+* Contributors: Davide Faconti
+
+2.3.4 (2019-10-03)
+------------------
+* prepare "meme edition"
+* Merge branch 'master' of https://github.com/facontidavide/PlotJuggler
+* RosMsgParsers: add cast to be clang compatible (#208)
+* Update README.md
+* Update FUNDING.yml
+* Correct "Github" to "GitHub" (#206)
+* 2.3.3
+* fix issue with FMT
+* Contributors: Dan Katzuv, Davide Faconti, Timon Engelke
+
+2.3.3 (2019-10-01)
+------------------
+* removed explicit reference to Span
+* remove abseil dependency (to be tested)
+* Contributors: Davide Faconti
+
+2.3.2 (2019-09-30)
+------------------
+* always use random color in addCurveXY
+* Fix issue #204
+* Fix issue #203
+* Add missed absl Span<T> header include
+* Add missed abseil_cpp depend
+* Contributors: Davide Faconti, Enrique Fernandez
+
+2.3.1 (2019-09-24)
+------------------
+* Fix `#202 <https://github.com/facontidavide/PlotJuggler/issues/202>`_ use_header_stamp not initialized for built-in types
+* Merge pull request `#200 <https://github.com/facontidavide/PlotJuggler/issues/200>`_ from aeudes/multiple_streamer
+  data stream topic plugin
+* new color palette
+* Allow to have working datastreamtopic plugin in more than one plotjuggler
+  instance
+* adding covariance to Odometry msg again
+* fix issue `#187 <https://github.com/facontidavide/PlotJuggler/issues/187>`_
+* Fix segfault when swap plotwidget on archlinux (qt5.12.3).
+  This bug is introduced in: 7959e54 Spurious DragLeave fixed?
+  And produce a segfault(nullptr) in QCursor::shape() call by
+  QBasicDrag::updateCursor(Qt::DropAction) [trigger by plotwidget.cpp:1352
+  drag->exec();].
+  It seems to me that the change of global application cursor on leave event during drag drop
+  operation cause the problem [is it the drop widget duty to reset cursor?].
+* minor fixes related to dark theme
+* Contributors: Alexandre Eudes, Davide Faconti
+
 2.3.0 (2019-07-11)
 ------------------
 * Countless changes and merges of PR.
