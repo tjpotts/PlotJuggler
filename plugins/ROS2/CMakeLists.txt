@@ -13,9 +13,8 @@ add_definitions(-DQT_SHARED)
 #############
 
 SET( COMMON_SRC
-    dialog_select_ros_topics.h
     dialog_select_ros_topics.cpp
-    dialog_with_itemlist.h
+    RosManager.cpp
     )
 
 QT5_WRAP_UI ( COMMON_UI_SRC
@@ -42,3 +41,15 @@ target_link_libraries( DataLoadROS  commonROS)
 
 install(TARGETS DataLoadROS
     DESTINATION lib/plotjuggler  )
+
+set(DATASTREAM_SRC
+    DataStreamROS/datastream_ros.cpp
+    ../../include/PlotJuggler/datastreamer_base.h
+)
+
+add_library(DataStreamROS SHARED ${DATASTREAM_SRC})
+target_link_libraries(DataStreamROS commonROS)
+
+install(TARGETS DataStreamROS
+    DESTINATION lib/plotjuggler
+)
