@@ -13,6 +13,10 @@ DataStreamROS::DataStreamROS() :
             &_ros_manager, &RosManager::startTopicListListener);
     connect(this, &DataStreamROS::topicListDialogClosed,
             &_ros_manager, &RosManager::stopTopicListListener);
+    connect(this, &DataStreamROS::clearSubscriptionsRequest,
+            &_ros_manager, &RosManager::clearSubscriptions);
+    connect(this, &DataStreamROS::subscriptionRequest,
+            &_ros_manager, &RosManager::subscribe);
 }
 
 bool DataStreamROS::start(QStringList* selected_datasources)
@@ -46,11 +50,10 @@ bool DataStreamROS::start(QStringList* selected_datasources)
     }
 
     // TODO: Subscribe to the selected topics
-    qDebug() << "Selected topics: " << endl;
-
+    emit clearSubscriptionsRequest();
     for (auto topic : _topic_config.selected_topics)
     {
-        qDebug() << topic << endl;
+        emit subscriptionRequest(topic);
     }
 
     return true;
@@ -60,6 +63,8 @@ bool DataStreamROS::isRunning() const { return _running; }
 
 void DataStreamROS::shutdown()
 {
+    emit clearSubscriptionsRequest();
+
     _running = false;
 }
 

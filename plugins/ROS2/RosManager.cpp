@@ -1,6 +1,13 @@
 #include "RosManager.h"
 
+#include <functional>
+
 #include <QDebug>
+
+#include "rosidl_typesupport_cpp/identifier.hpp"
+#include "rosbag2/typesupport_helpers.hpp"
+
+using namespace std::placeholders;
 
 RosManager::RosManager() :
     _thread(),
@@ -88,8 +95,53 @@ void RosManager::stopTopicListListener()
     _topic_list_timer.stop();
 }
 
+std::string RosManager::getTopicTypeName(std::string topic)
+{
+    auto topic_list = _node->get_topic_names_and_types();
+    for (auto t : topic_list)
+    {
+        if (t.first == topic)
+        {
+            return t.second[0];
+        }
+    }
+    return "";
+}
+
+void RosManager::clearSubscriptions()
+{
+    qDebug() << "Clearing subscriptions" << endl;
+    // The node only maintains a weak pointer to subscriptions, so getting rid of
+    // the shared pointers here will cause them to be removed
+    _subscriptions.clear();
+}
+
 void RosManager::subscribe(QString topic)
 {
     qDebug() << "Subscribing to topic: " << topic << endl;
+
+    if (_subscriptions.find(topic) != _subscriptions.end())
+    {
+        return;
+    }
+
+    auto type_name = getTopicTypeName(topic.toStdString());
+    auto type_support = rosbag2::get_typesupport(type_name, rosidl_typesupport_cpp::typesupport_identifier);
+    auto bound_callback = std::bind(&RosManager::rosMessageCallback, this, topic, _1);
+
+    auto subscription = std::make_shared<rosbag2_transport::GenericSubscription>(
+        _node->get_node_base_interface().get(),
+        *type_support,
+        topic.toStdString(),
+        bound_callback
+    );
+
+    _subscriptions[topic] = subscription;
+    _node->get_node_topics_interface()->add_subscription(subscription, nullptr);
+}
+
+void RosManager::rosMessageCallback(QString topic, std::shared_ptr<rmw_serialized_message_t> msg)
+{
+    qDebug() << "Received message for topic: " << topic << endl;
 }
 

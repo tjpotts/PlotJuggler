@@ -7,6 +7,8 @@
 #include <QThread>
 #include <QTimer>
 
+#include "generic_subscription.hpp"
+
 typedef QHash<QString, QString> QRosTopicList;
 Q_DECLARE_METATYPE(QRosTopicList);
 
@@ -23,6 +25,7 @@ public:
 public slots:
     void startTopicListListener();
     void stopTopicListListener();
+    void clearSubscriptions();
     void subscribe(QString topic);
 
 signals:
@@ -37,6 +40,12 @@ private:
 
     QTimer _spin_timer;
     QTimer _topic_list_timer;
+
+    std::string getTopicTypeName(std::string topic);
+
+    QHash<QString, std::shared_ptr<rosbag2_transport::GenericSubscription>> _subscriptions;
+
+    void rosMessageCallback(QString topic, std::shared_ptr<rmw_serialized_message_t> msg);
 
 private slots:
     void run();

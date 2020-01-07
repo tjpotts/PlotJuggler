@@ -47,7 +47,8 @@ public slots:
 signals:
     void topicListDialogOpening();
     void topicListDialogClosed();
-    void subscriptionRequested(QString topic);
+    void clearSubscriptionsRequest();
+    void subscriptionRequest(QString topic);
 
 private:
 
