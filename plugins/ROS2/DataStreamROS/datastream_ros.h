@@ -8,6 +8,7 @@
 #include "../dialog_select_ros_topics.h"
 
 #include "RosManager.h"
+#include "ros_parser.h"
 
 class DataStreamROS : public DataStreamer
 {
@@ -42,7 +43,7 @@ public:
     }
 
 public slots:
-    void message_received(QString topic);
+    void messageReceived(QString topic, std::shared_ptr<rmw_serialized_message_t> msg);
 
 signals:
     void topicListDialogOpening();
@@ -59,6 +60,7 @@ private:
     bool _running;
 
     DialogSelectRosTopics::Configuration _topic_config;
+    QRosTopicList _topic_list;
 
 };
 

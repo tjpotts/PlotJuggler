@@ -16,6 +16,7 @@ SET( COMMON_SRC
     dialog_select_ros_topics.cpp
     RosManager.cpp
     generic_subscription.cpp
+    ros_parser.cpp
     )
 
 QT5_WRAP_UI ( COMMON_UI_SRC

@@ -17,6 +17,7 @@ RosManager::RosManager() :
     _topic_list_timer(this)
 {
     qRegisterMetaType<QRosTopicList>();
+    qRegisterMetaType<std::shared_ptr<rmw_serialized_message_t>>();
 
     setParent(0);
     moveToThread(&_thread);
@@ -112,7 +113,7 @@ void RosManager::clearSubscriptions()
 {
     qDebug() << "Clearing subscriptions" << endl;
     // The node only maintains a weak pointer to subscriptions, so getting rid of
-    // the shared pointers here will cause them to be removed
+    // the shared pointers here will cause them to be destroyed
     _subscriptions.clear();
 }
 
@@ -142,6 +143,6 @@ void RosManager::subscribe(QString topic)
 
 void RosManager::rosMessageCallback(QString topic, std::shared_ptr<rmw_serialized_message_t> msg)
 {
-    qDebug() << "Received message for topic: " << topic << endl;
+    emit messageReceived(topic, msg);
 }
 

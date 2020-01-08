@@ -17,6 +17,8 @@ DataStreamROS::DataStreamROS() :
             &_ros_manager, &RosManager::clearSubscriptions);
     connect(this, &DataStreamROS::subscriptionRequest,
             &_ros_manager, &RosManager::subscribe);
+    connect(&_ros_manager, &RosManager::messageReceived,
+            this, &DataStreamROS::messageReceived);
 }
 
 bool DataStreamROS::start(QStringList* selected_datasources)
@@ -27,8 +29,9 @@ bool DataStreamROS::start(QStringList* selected_datasources)
     std::vector<std::pair<QString,QString>> dialog_topics;
     DialogSelectRosTopics dialog(dialog_topics, _topic_config);
 
-    connect(&_ros_manager, &RosManager::topicListUpdated, this, [&dialog](QRosTopicList topic_list)
+    connect(&_ros_manager, &RosManager::topicListUpdated, this, [this, &dialog](QRosTopicList topic_list)
     {
+        _topic_list = topic_list;
         std::vector<std::pair<QString, QString>> dialog_topic_list;
         for (auto key : topic_list.keys())
         {
@@ -49,7 +52,6 @@ bool DataStreamROS::start(QStringList* selected_datasources)
         return false;
     }
 
-    // TODO: Subscribe to the selected topics
     emit clearSubscriptionsRequest();
     for (auto topic : _topic_config.selected_topics)
     {
@@ -57,6 +59,18 @@ bool DataStreamROS::start(QStringList* selected_datasources)
     }
 
     return true;
+}
+
+void DataStreamROS::messageReceived(QString topic, std::shared_ptr<rmw_serialized_message_t> msg)
+{
+    qDebug() << "DataStreamROS received message from topic " << topic << " of type " << _topic_list[topic] << endl;
+
+    auto type_info = ros_parser::getTypeInfo(_topic_list[topic].toStdString());
+
+    for (auto m : type_info.members)
+    {
+        qDebug() << topic + "/" + QString::fromStdString(m.path + "/" + m.name);
+    }
 }
 
 bool DataStreamROS::isRunning() const { return _running; }

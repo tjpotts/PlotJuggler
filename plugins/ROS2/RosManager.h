@@ -12,6 +12,13 @@
 typedef QHash<QString, QString> QRosTopicList;
 Q_DECLARE_METATYPE(QRosTopicList);
 
+Q_DECLARE_METATYPE(std::shared_ptr<rmw_serialized_message_t>);
+
+struct TopicData
+{
+
+};
+
 // Singleton class which manages a ros2 node and provides interfaces
 // to query topics available and subscribe to topics
 class RosManager : public QObject
@@ -30,7 +37,7 @@ public slots:
 
 signals:
     void topicListUpdated(QRosTopicList topic_list);
-    void messageReceived(QString topic);
+    void messageReceived(QString topic, std::shared_ptr<rmw_serialized_message_t> msg);
 
 private:
     QThread _thread;
