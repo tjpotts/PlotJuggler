@@ -12,6 +12,8 @@ namespace ros_parser
 
 TypeInfo getTypeInfo(std::string type_name)
 {
+    // TODO: Check for and store header information
+
     auto typesupport = rosbag2::get_typesupport(type_name, rosidl_typesupport_cpp::typesupport_identifier);
     auto introspection_typesupport = rosbag2::get_typesupport(type_name, rosidl_typesupport_introspection_cpp::typesupport_identifier);
     auto allocator = rcutils_get_default_allocator();
@@ -39,11 +41,25 @@ void getMemberInfo(
 
     for (int i = 0; i < members->member_count_; ++i)
     {
-        // TODO: Handle arrays
         auto member = members->members_[i];
         if (member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE)
         {
-            getMemberInfo(member.members_, member_info_vec, path + "/" + std::string(member.name_), offset + member.offset_);
+            // TODO: Handle dynamically-sized arrays
+            // TODO: Handle non-message arrays (e.g. float32[])
+            if (member.is_array_)
+            {
+                auto array_members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member.members_->data);
+                for (int j = 0; j < member.array_size_; ++j)
+                {
+                    auto array_member_path = path + "/" + std::string(member.name_) + "/" + std::to_string(j);
+                    auto array_member_offset = offset + member.offset_ + array_members->size_of_ * j;
+                    getMemberInfo(member.members_, member_info_vec, array_member_path, array_member_offset);
+                }
+            }
+            else
+            {
+                getMemberInfo(member.members_, member_info_vec, path + "/" + std::string(member.name_), offset + member.offset_);
+            }
         }
         else
         {
