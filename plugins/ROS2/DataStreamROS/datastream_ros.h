@@ -61,6 +61,8 @@ private:
 
     DialogSelectRosTopics::Configuration _topic_config;
     QRosTopicList _topic_list;
+    rclcpp::Clock _clock;
+    rcl_time_point_value_t _start_time;
 
 };
 

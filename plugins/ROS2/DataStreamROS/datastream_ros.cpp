@@ -52,6 +52,9 @@ bool DataStreamROS::start(QStringList* selected_datasources)
         return false;
     }
 
+    _clock = rclcpp::Clock();
+    _start_time = _clock.now().nanoseconds();
+
     emit clearSubscriptionsRequest();
     for (auto topic : _topic_config.selected_topics)
     {
@@ -63,13 +66,23 @@ bool DataStreamROS::start(QStringList* selected_datasources)
 
 void DataStreamROS::messageReceived(QString topic, std::shared_ptr<rmw_serialized_message_t> msg)
 {
-    qDebug() << "DataStreamROS received message from topic " << topic << " of type " << _topic_list[topic] << endl;
+    auto time = (_clock.now().nanoseconds() - _start_time) * 1.0e-9;
 
     auto type_info = ros_parser::getTypeInfo(_topic_list[topic].toStdString());
+    uint8_t* deserialized_message = ros_parser::deserialize(msg, type_info);
 
     for (auto m : type_info.members)
     {
-        qDebug() << topic + "/" + QString::fromStdString(m.path + "/" + m.name);
+        auto member_name = topic + "/" + QString::fromStdString(m.path + "/" + m.name);
+        auto member_value = ros_parser::getMessageMemberNumeric(deserialized_message, m);
+
+        auto key = member_name.toStdString();
+        auto it = dataMap().numeric.find(key);
+        if (it == dataMap().numeric.end())
+        {
+            it = dataMap().addNumeric(key);
+        }
+        it->second.pushBack(PlotData::Point(time, member_value));
     }
 }
 

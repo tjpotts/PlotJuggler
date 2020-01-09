@@ -5,6 +5,8 @@
 #include "rosidl_typesupport_introspection_cpp/message_introspection.hpp"
 #include "rosidl_typesupport_introspection_cpp/field_types.hpp"
 
+#include <QDebug>
+
 namespace ros_parser
 {
 
@@ -37,10 +39,11 @@ void getMemberInfo(
 
     for (int i = 0; i < members->member_count_; ++i)
     {
+        // TODO: Handle arrays
         auto member = members->members_[i];
         if (member.type_id_ == rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE)
         {
-            getMemberInfo(member.members_, member_info_vec, path + "/" + std::string(member.name_), member.offset_);
+            getMemberInfo(member.members_, member_info_vec, path + "/" + std::string(member.name_), offset + member.offset_);
         }
         else
         {
@@ -52,6 +55,74 @@ void getMemberInfo(
             member_info_vec.push_back(member_info);
         }
     }
+}
+
+uint8_t* deserialize(std::shared_ptr<rmw_serialized_message_t> msg, TypeInfo& typeInfo)
+{
+    rmw_deserialize(msg.get(), typeInfo.typesupport, typeInfo.msg_buffer->message);
+
+    return (uint8_t*)typeInfo.msg_buffer->message;
+}
+
+uint8_t* getMessageMember(uint8_t* deserialized_message, const MemberInfo& member_info)
+{
+    return deserialized_message + member_info.offset;
+}
+
+double getMessageMemberNumeric(uint8_t* deserialized_message, const MemberInfo& member_info)
+{
+    double data = 0.0;
+    auto member = getMessageMember(deserialized_message, member_info);
+
+    switch (member_info.ros_type)
+    {
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_FLOAT:
+            data = *reinterpret_cast<float*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_DOUBLE:
+            data = *reinterpret_cast<double*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_CHAR:
+            data = *reinterpret_cast<char*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_BOOLEAN:
+            data = *reinterpret_cast<bool*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT8:
+            data = *reinterpret_cast<uint8_t*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT8:
+            data = *reinterpret_cast<int8_t*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT16:
+            data = *reinterpret_cast<uint16_t*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT16:
+            data = *reinterpret_cast<int16_t*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT32:
+            data = *reinterpret_cast<uint32_t*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT32:
+            data = *reinterpret_cast<int32_t*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT64:
+            data = *reinterpret_cast<uint64_t*>(member);
+            break;
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT64:
+            data = *reinterpret_cast<int64_t*>(member);
+            break;
+        // Unsupported types
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_LONG_DOUBLE:
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_WCHAR:
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_OCTET:
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING:
+        case rosidl_typesupport_introspection_cpp::ROS_TYPE_WSTRING:
+        default:
+            break;
+    }
+
+    return data;
 }
 
 } // end namespace ros_parser

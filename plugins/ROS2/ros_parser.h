@@ -6,6 +6,9 @@
 #include <memory>
 #include <vector>
 
+#include "rmw/rmw.h"
+#include "rmw/types.h"
+
 #include "rosbag2/typesupport_helpers.hpp"
 #include "rosbag2/types/introspection_message.hpp"
 
@@ -40,6 +43,11 @@ void getMemberInfo(
     std::string path = "",
     uint32_t offset = 0
 );
+
+uint8_t* deserialize(std::shared_ptr<rmw_serialized_message_t> msg, TypeInfo& typeInfo);
+
+uint8_t* getMessageMember(uint8_t* deserialized_message, const MemberInfo& member_info);
+double getMessageMemberNumeric(uint8_t* dserialized_message, const MemberInfo& member_info);
 
 } // end namespace ros_parser
 
