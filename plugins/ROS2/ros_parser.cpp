@@ -10,10 +10,8 @@
 namespace ros_parser
 {
 
-TypeInfo getTypeInfo(std::string type_name)
+const TypeInfo getTypeInfo(std::string type_name)
 {
-    // TODO: Check for and store header information
-
     auto typesupport = rosbag2::get_typesupport(type_name, rosidl_typesupport_cpp::typesupport_identifier);
     auto introspection_typesupport = rosbag2::get_typesupport(type_name, rosidl_typesupport_introspection_cpp::typesupport_identifier);
     auto allocator = rcutils_get_default_allocator();
@@ -31,13 +29,50 @@ TypeInfo getTypeInfo(std::string type_name)
     return type_info;
 }
 
+std::shared_ptr<HeaderInfo> getHeaderInfo(
+    const rosidl_typesupport_introspection_cpp::MessageMembers* header_typesupport,
+    uint32_t offset
+) {
+    // TODO: Add a check on the incoming header_typesupport to ensure it is actually a header
+
+    auto header_info = std::make_shared<HeaderInfo>();
+    auto stamp_typesupport = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(header_typesupport->members_[0].members_->data);
+    auto stamp_offset = offset + header_typesupport->members_[0].offset_;
+
+    header_info->secs_offset = stamp_offset + stamp_typesupport->members_[0].offset_;
+    header_info->nanosecs_offset = stamp_offset + stamp_typesupport->members_[1].offset_;
+    header_info->frame_id_offset = offset + header_typesupport->members_[1].offset_;
+
+    return header_info;
+}
+
 void getMemberInfo(
     const rosidl_message_type_support_t* introspection_typesupport,
     std::vector<MemberInfo>& member_info_vec,
     std::string path,
+    std::shared_ptr<HeaderInfo> header_info,
     uint32_t offset
 ) {
     auto members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(introspection_typesupport->data);
+
+    // Get the header information for the message if it contains one
+    for (int i = 0; i < members->member_count_; ++i)
+    {
+        auto member = members->members_[i];
+        if (member.type_id_ != rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE)
+        {
+            // Not a message
+            continue;
+        }
+
+        auto member_typesupport = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member.members_->data);
+        auto member_type_name = member_typesupport->message_name_;
+        auto member_namespace = member_typesupport->message_namespace_;
+        if (std::string(member_type_name) == "Header" && std::string(member_namespace) == "std_msgs::msg")
+        {
+            header_info = getHeaderInfo(member_typesupport, offset + member.offset_);
+        }
+    }
 
     for (int i = 0; i < members->member_count_; ++i)
     {
@@ -60,17 +95,18 @@ void getMemberInfo(
                 {
                     auto array_member_path = new_path + "/" + std::to_string(j);
                     auto array_member_offset = offset + member.offset_ + array_members->size_of_ * j;
-                    getMemberInfo(member.members_, member_info_vec, array_member_path, array_member_offset);
+                    getMemberInfo(member.members_, member_info_vec, array_member_path, header_info, array_member_offset);
                 }
             }
             else
             {
-                getMemberInfo(member.members_, member_info_vec, new_path, offset + member.offset_);
+                getMemberInfo(member.members_, member_info_vec, new_path, header_info, offset + member.offset_);
             }
         }
         else
         {
             MemberInfo member_info;
+            member_info.header_info = header_info;
             member_info.path = path;
             member_info.name = std::string(member.name_);
             member_info.offset = offset + member.offset_;
@@ -86,6 +122,14 @@ uint8_t* deserialize(std::shared_ptr<rmw_serialized_message_t> msg, TypeInfo& ty
     rmw_deserialize(msg.get(), typeInfo.typesupport, typeInfo.msg_buffer->message);
 
     return (uint8_t*)typeInfo.msg_buffer->message;
+}
+
+double getMessageTime(uint8_t* deserialized_message, const HeaderInfo& header_info)
+{
+    auto header_secs = *reinterpret_cast<int32_t*>(deserialized_message + header_info.secs_offset);
+    auto header_nanosecs = *reinterpret_cast<uint32_t*>(deserialized_message + header_info.nanosecs_offset);
+
+    return header_secs + (header_nanosecs * 1e-9);
 }
 
 uint8_t* getMessageMember(uint8_t* deserialized_message, const MemberInfo& member_info)

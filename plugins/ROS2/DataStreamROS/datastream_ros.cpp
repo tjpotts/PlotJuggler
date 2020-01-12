@@ -72,8 +72,9 @@ bool DataStreamROS::start(QStringList* selected_datasources)
 
 void DataStreamROS::messageReceived(QString topic, std::shared_ptr<rmw_serialized_message_t> msg)
 {
-    auto time = (_clock.now().nanoseconds() - _start_time) * 1.0e-9;
+    double time = (_clock.now().nanoseconds() - _start_time) * 1.0e-9;
 
+    // TODO: Cache type info so it doesn't have to be retrieved on every message receipt
     auto type_info = ros_parser::getTypeInfo(_topic_list[topic].toStdString());
     uint8_t* deserialized_message = ros_parser::deserialize(msg, type_info);
 
@@ -82,13 +83,19 @@ void DataStreamROS::messageReceived(QString topic, std::shared_ptr<rmw_serialize
         auto member_name = topic + "/" + QString::fromStdString(m.path + "/" + m.name);
         auto member_value = ros_parser::getMessageMemberNumeric(deserialized_message, m);
 
+        auto member_time = time;
+        if (_config.use_header_stamp && m.header_info != nullptr)
+        {
+            member_time = ros_parser::getMessageTime(deserialized_message, *m.header_info.get());
+        }
+
         auto key = member_name.toStdString();
         auto it = dataMap().numeric.find(key);
         if (it == dataMap().numeric.end())
         {
             it = dataMap().addNumeric(key);
         }
-        it->second.pushBack(PlotData::Point(time, member_value));
+        it->second.pushBack(PlotData::Point(member_time, member_value));
     }
 }
 
@@ -108,7 +115,6 @@ DataStreamROS::~DataStreamROS()
 
 bool DataStreamROS::xmlSaveState(QDomDocument &doc, QDomElement &plugin_elem) const
 {
-    // TODO: Implement using header timestamps
     QDomElement stamp_elem = doc.createElement("use_header_stamp");
     stamp_elem.setAttribute("value", _config.use_header_stamp ? "true" : "false");
     plugin_elem.appendChild(stamp_elem);

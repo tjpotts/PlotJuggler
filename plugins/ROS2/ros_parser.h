@@ -17,8 +17,16 @@
 namespace ros_parser
 {
 
+typedef struct HeaderInfo
+{
+    uint32_t secs_offset;
+    uint32_t nanosecs_offset;
+    uint32_t frame_id_offset;
+} HeaderInfo;
+
 typedef struct MemberInfo
 {
+    std::shared_ptr<HeaderInfo> header_info;
     std::string path;
     std::string name;
     uint32_t offset;
@@ -35,17 +43,24 @@ typedef struct TypeInfo
 } TypeInfo;
 
 
-TypeInfo getTypeInfo(std::string topic_name);
+const TypeInfo getTypeInfo(std::string topic_name);
+
+std::shared_ptr<HeaderInfo> getHeaderInfo(
+    const rosidl_typesupport_introspection_cpp::MessageMembers* header_typesupport,
+    uint32_t offset
+);
 
 void getMemberInfo(
     const rosidl_message_type_support_t* introspection_typesupport,
     std::vector<MemberInfo>& member_info_vec,
     std::string path = "",
+    std::shared_ptr<HeaderInfo> header_info = nullptr,
     uint32_t offset = 0
 );
 
 uint8_t* deserialize(std::shared_ptr<rmw_serialized_message_t> msg, TypeInfo& typeInfo);
 
+double getMessageTime(uint8_t* deserialized_message, const HeaderInfo& header_info);
 uint8_t* getMessageMember(uint8_t* deserialized_message, const MemberInfo& member_info);
 double getMessageMemberNumeric(uint8_t* dserialized_message, const MemberInfo& member_info);
 
