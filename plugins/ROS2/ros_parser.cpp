@@ -46,19 +46,26 @@ void getMemberInfo(
         {
             // TODO: Handle dynamically-sized arrays
             // TODO: Handle non-message arrays (e.g. float32[])
+            auto new_path = std::string(path);
+            if (new_path.size() > 0)
+            {
+                new_path = new_path + "/";
+            }
+            new_path = new_path + std::string(member.name_);
+
             if (member.is_array_)
             {
                 auto array_members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member.members_->data);
                 for (int j = 0; j < member.array_size_; ++j)
                 {
-                    auto array_member_path = path + "/" + std::string(member.name_) + "/" + std::to_string(j);
+                    auto array_member_path = new_path + "/" + std::to_string(j);
                     auto array_member_offset = offset + member.offset_ + array_members->size_of_ * j;
                     getMemberInfo(member.members_, member_info_vec, array_member_path, array_member_offset);
                 }
             }
             else
             {
-                getMemberInfo(member.members_, member_info_vec, path + "/" + std::string(member.name_), offset + member.offset_);
+                getMemberInfo(member.members_, member_info_vec, new_path, offset + member.offset_);
             }
         }
         else
@@ -75,6 +82,7 @@ void getMemberInfo(
 
 uint8_t* deserialize(std::shared_ptr<rmw_serialized_message_t> msg, TypeInfo& typeInfo)
 {
+    // TODO: check return value of rmw_deserialize
     rmw_deserialize(msg.get(), typeInfo.typesupport, typeInfo.msg_buffer->message);
 
     return (uint8_t*)typeInfo.msg_buffer->message;

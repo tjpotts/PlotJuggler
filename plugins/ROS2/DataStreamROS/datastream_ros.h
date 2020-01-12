@@ -59,11 +59,14 @@ private:
 
     bool _running;
 
-    DialogSelectRosTopics::Configuration _topic_config;
+    DialogSelectRosTopics::Configuration _config;
     QRosTopicList _topic_list;
     rclcpp::Clock _clock;
     rcl_time_point_value_t _start_time;
 
+    void saveDefaultSettings();
+
+    void loadDefaultSettings();
 };
 
 #endif
